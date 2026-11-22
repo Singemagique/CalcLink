@@ -66,6 +66,40 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool HasDefaultFolder => !string.IsNullOrEmpty(DefaultReceiveFolder);
 
+    public bool HasCustomBackupFolder => !string.IsNullOrWhiteSpace(_settings.Current.BackupFolder);
+
+    public string BackupFolderText => HasCustomBackupFolder ? _settings.Current.BackupFolder! : $"{Backups.DefaultRoot} (default)";
+
+    [RelayCommand]
+    private async Task BrowseBackupFolderAsync()
+    {
+        try
+        {
+            if (await _pickers.PickFolderAsync() is { } folder)
+            {
+                _settings.Update(s => s.BackupFolder = folder);
+                OnBackupFolderChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            await _dialogs.ShowErrorAsync("Could not open the folder picker", ex);
+        }
+    }
+
+    [RelayCommand]
+    private void ResetBackupFolder()
+    {
+        _settings.Update(s => s.BackupFolder = null);
+        OnBackupFolderChanged();
+    }
+
+    private void OnBackupFolderChanged()
+    {
+        OnPropertyChanged(nameof(HasCustomBackupFolder));
+        OnPropertyChanged(nameof(BackupFolderText));
+    }
+
     public string DefaultReceiveFolderText => HasDefaultFolder ? DefaultReceiveFolder : "Not set";
 
     public bool RestartRequired => (CalculatorBackend)BackendIndex != _settings.StartupBackend;

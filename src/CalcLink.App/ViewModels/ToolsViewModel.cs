@@ -21,9 +21,10 @@ public sealed partial class ToolsViewModel : ObservableObject
     private readonly NotificationService _notifications;
 
     public ToolsViewModel(ConnectionService connection, OperationService operations, DialogService dialogs,
-        PickerService pickers, NotificationService notifications)
+        PickerService pickers, NotificationService notifications, BackupsViewModel backups)
     {
         Connection = connection;
+        Backups = backups;
         _operations = operations;
         _dialogs = dialogs;
         _pickers = pickers;
@@ -52,6 +53,9 @@ public sealed partial class ToolsViewModel : ObservableObject
 
     public ConnectionService Connection { get; }
 
+    /// <summary>The Backups card (Back up now, past backups, restore).</summary>
+    public BackupsViewModel Backups { get; }
+
     public ObservableCollection<InfoRow> InfoRows { get; } = [];
 
     public bool HasInfo => Connection.Info is not null;
@@ -75,7 +79,6 @@ public sealed partial class ToolsViewModel : ObservableObject
 
     public bool CanRefreshInfo => Idle;
     public bool CanClock => Idle && HasClock;
-    public bool CanBackup => Idle && Connection.Supports(CalcFeatures.Backup);
     public bool CanDumpRom => Idle && Connection.Supports(CalcFeatures.RomDump);
     public bool CanSendOs => Idle && Connection.Supports(CalcFeatures.Os);
 
@@ -93,24 +96,10 @@ public sealed partial class ToolsViewModel : ObservableObject
         : HasClock ? string.Empty
         : $"The {Connection.ModelName} has no clock that CalcLink can set.";
 
-    public string BackupRomNote
-    {
-        get
-        {
-            if (!Connection.IsConnected)
-            {
-                return "Connect a calculator to back it up or dump its ROM.";
-            }
-            bool backup = Connection.Supports(CalcFeatures.Backup), rom = Connection.Supports(CalcFeatures.RomDump);
-            return (backup, rom) switch
-            {
-                (false, false) => $"Backup and ROM dump aren't supported on the {Connection.ModelName}.",
-                (false, true) => $"Backup isn't supported on the {Connection.ModelName}.",
-                (true, false) => $"ROM dump isn't supported on the {Connection.ModelName}.",
-                _ => string.Empty,
-            };
-        }
-    }
+    public string RomNote =>
+        !Connection.IsConnected ? "Connect a calculator to dump its ROM."
+        : Connection.Supports(CalcFeatures.RomDump) ? string.Empty
+        : $"ROM dump isn't supported on the {Connection.ModelName}.";
 
     public string OsNote =>
         !Connection.IsConnected ? "Connect a calculator to upgrade its operating system."
@@ -121,6 +110,7 @@ public sealed partial class ToolsViewModel : ObservableObject
     {
         RebuildInfo();
         UpdateState();
+        Backups.OnNavigatedTo();
     }
 
     private void UpdateState()
@@ -130,7 +120,6 @@ public sealed partial class ToolsViewModel : ObservableObject
         ReadClockCommand.NotifyCanExecuteChanged();
         SetClockCommand.NotifyCanExecuteChanged();
         SyncClockCommand.NotifyCanExecuteChanged();
-        BackupCommand.NotifyCanExecuteChanged();
         DumpRomCommand.NotifyCanExecuteChanged();
         SendOsCommand.NotifyCanExecuteChanged();
     }
@@ -148,11 +137,11 @@ public sealed partial class ToolsViewModel : ObservableObject
             Add("Boot version", i.BootVersion);
             if (i.RamUser > 0 || i.RamFree > 0)
             {
-                Add("RAM", $"{Format.Bytes(i.RamFree)} free of {Format.Bytes(i.RamUser)}");
+                Add("RAM", Format.Memory(i.RamFree, i.RamUser));
             }
             if (i.FlashUser > 0 || i.FlashFree > 0)
             {
-                Add("Archive (Flash)", $"{Format.Bytes(i.FlashFree)} free of {Format.Bytes(i.FlashUser)}");
+                Add("Archive (Flash)", Format.Memory(i.FlashFree, i.FlashUser));
             }
             if (i.LcdWidth > 0 && i.LcdHeight > 0)
             {
@@ -229,35 +218,7 @@ public sealed partial class ToolsViewModel : ObservableObject
         }
     }
 
-    // --- Backup / ROM / OS -----------------------------------------------------------------------
-
-    [RelayCommand(CanExecute = nameof(CanBackup))]
-    private async Task BackupAsync()
-    {
-        if (Connection.Session is not { } session)
-        {
-            return;
-        }
-        var choices = new List<KeyValuePair<string, IList<string>>>
-        {
-            new("TI group (.tig)", [".tig"]),
-        };
-        if (ModelNames.NativeBackupExtension(session.Model) is { } ext)
-        {
-            choices.Add(new($"{Connection.ModelName} backup (.{ext})", ["." + ext]));
-        }
-        string? path = await PickSaveAsync($"{Connection.ModelName} backup {DateTime.Now:yyyy-MM-dd}", choices);
-        if (path is null)
-        {
-            return;
-        }
-        var outcome = await _operations.RunAsync("Backing up the calculator",
-            (progress, ct) => session.BackupAsync(path, progress, ct));
-        if (outcome == OperationOutcome.Succeeded)
-        {
-            _notifications.Post("Backup complete", $"Saved to {path}.", InfoBarSeverity.Success);
-        }
-    }
+    // --- ROM / OS (backups: BackupsViewModel) ----------------------------------------------------
 
     [RelayCommand(CanExecute = nameof(CanDumpRom))]
     private async Task DumpRomAsync()

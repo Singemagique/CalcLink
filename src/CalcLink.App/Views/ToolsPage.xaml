@@ -149,33 +149,112 @@
                 </StackPanel>
             </Border>
 
-            <!-- Backup / ROM -->
+            <!-- Backups: one click to a dated file per calculator, the list of past backups, restore. -->
             <Border Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Backup and ROM" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Backups" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock Style="{StaticResource SecondaryTextStyle}"
-                               Text="A backup saves all variables (TI group .tig, or the model's native backup format). A ROM dump creates an image of the calculator's software for use with an emulator." />
+                               Text="{x:Bind ViewModel.Backups.BackupDescription, Mode=OneWay}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Command="{x:Bind ViewModel.BackupCommand}">
+                        <Button Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.Backups.BackUpNowCommand}"
+                                AutomationProperties.Name="Back up now">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xEA35;" FontSize="14" />
-                                <TextBlock Text="Backup…" />
+                                <TextBlock Text="Back up now" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.DumpRomCommand}">
+                        <Button Command="{x:Bind ViewModel.Backups.SaveAsCommand}"
+                                ToolTipService.ToolTip="Choose where to save the backup, and its format">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE950;" FontSize="14" />
-                                <TextBlock Text="ROM dump…" />
+                                <FontIcon Glyph="&#xE792;" FontSize="14" />
+                                <TextBlock Text="Save as…" />
+                            </StackPanel>
+                        </Button>
+                        <Button Command="{x:Bind ViewModel.Backups.OpenFolderCommand}"
+                                Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.Backups.FolderText, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE838;" FontSize="14" />
+                                <TextBlock Text="Open folder" />
                             </StackPanel>
                         </Button>
                     </StackPanel>
-                    <Grid ColumnSpacing="8" Visibility="{x:Bind h:Format.VisibleIfNotEmpty(ViewModel.BackupRomNote), Mode=OneWay}">
+
+                    <ListView ItemsSource="{x:Bind ViewModel.Backups.Items}" SelectionMode="None" MaxHeight="320"
+                              Visibility="{x:Bind ViewModel.Backups.HasBackups, Mode=OneWay}"
+                              AutomationProperties.Name="Backups of this calculator">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BackupListItem">
+                                <Grid ColumnSpacing="12" Padding="0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE81C;" FontSize="20" VerticalAlignment="Center" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind Details}" Style="{StaticResource SecondaryCaptionTextStyle}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Button Content="Restore…" Tag="{x:Bind}" Click="OnRestoreClick"
+                                                AutomationProperties.Name="{x:Bind RestoreAutomationName}" />
+                                        <Button Tag="{x:Bind}" AutomationProperties.Name="{x:Bind MoreAutomationName}"
+                                                ToolTipService.ToolTip="More">
+                                            <FontIcon Glyph="&#xE712;" FontSize="14" />
+                                            <Button.Flyout>
+                                                <MenuFlyout>
+                                                    <MenuFlyoutItem Text="Show in folder" Tag="{x:Bind}" Click="OnShowInFolderClick">
+                                                        <MenuFlyoutItem.Icon>
+                                                            <FontIcon Glyph="&#xE838;" />
+                                                        </MenuFlyoutItem.Icon>
+                                                    </MenuFlyoutItem>
+                                                    <MenuFlyoutItem Text="Delete" Tag="{x:Bind}" Click="OnDeleteBackupClick">
+                                                        <MenuFlyoutItem.Icon>
+                                                            <FontIcon Glyph="&#xE74D;" />
+                                                        </MenuFlyoutItem.Icon>
+                                                    </MenuFlyoutItem>
+                                                </MenuFlyout>
+                                            </Button.Flyout>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" Text="No backups of this calculator yet."
+                               Visibility="{x:Bind ViewModel.Backups.ShowNoBackups, Mode=OneWay}" />
+
+                    <Grid ColumnSpacing="8" Visibility="{x:Bind h:Format.VisibleIfNotEmpty(ViewModel.Backups.BackupNote), Mode=OneWay}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <FontIcon Style="{StaticResource NoteIconStyle}" />
-                        <TextBlock Grid.Column="1" Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.BackupRomNote, Mode=OneWay}" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.Backups.BackupNote, Mode=OneWay}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ROM -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="ROM image" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}"
+                               Text="A ROM dump creates an image of the calculator's software, for use with an emulator." />
+                    <Button Command="{x:Bind ViewModel.DumpRomCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE950;" FontSize="14" />
+                            <TextBlock Text="ROM dump…" />
+                        </StackPanel>
+                    </Button>
+                    <Grid ColumnSpacing="8" Visibility="{x:Bind h:Format.VisibleIfNotEmpty(ViewModel.RomNote), Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Style="{StaticResource NoteIconStyle}" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.RomNote, Mode=OneWay}" />
                     </Grid>
                 </StackPanel>
             </Border>

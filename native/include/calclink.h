@@ -154,6 +154,7 @@ CL_API int CL_CALL cl_get_info(cl_session* s, cl_calc_info* out);
  * the About screen shows, without dashes (e.g. 14 digits for a TI-83 Plus). UTF-8, NUL-terminated.
  * capacity >= 64 is always enough. */
 CL_API int CL_CALL cl_get_calc_id(cl_session* s, char* out, int32_t capacity);
+/* Free RAM / flash in bytes; 0 = not reported by this model (e.g. flash on a TI-83 Plus). */
 CL_API int CL_CALL cl_get_memfree(cl_session* s, uint64_t* ram, uint64_t* flash);
 
 /* ---- Variables ---- */

@@ -33,6 +33,8 @@ B3 and B9 were checked in the app against the simulator.
 
 (The TI-83 Plus can't change attributes over the link, so it was archived with remote key presses.)
 
+**Correction (F4 restore test, 2026-11-22).** Restoring the protected program `AVALANCH` (556 B) from a backup over its archived copy left it **in RAM**. The contents were identical, and the only file differences were the archived flag and the checksum. So where a replaced archived variable lands isn't reliable: the CLTEST case above stayed archived, this one didn't. Restore therefore re-reads the list afterwards and tells the user which items to archive again.
+
 | # | Sev | Where | Problem | Fix |
 |---|---|---|---|---|
 | B1 ✅ | **High** | `NativeCalculatorSession.cs:509,523` | A failed or cancelled **Backup or ROM dump deletes the destination file**. That may be an older backup the user chose to replace. tilibs only writes the file on success, so the old file was still intact before CalcLink deleted it. | Write to `<path>.partial`, then `File.Move(overwrite: true)` on success. Never delete the destination. |
@@ -147,7 +149,7 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F1 | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). | M (view) / L (edit) |
 | F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. We used it in this session to open the About screen. Pair it with Live screen for a full remote control. | M |
 | F3 | **Hot-plug: auto-detect and reconnect** | Today the user must press Scan, and a replug needs a manual reconnect. Watch USB arrivals for VID 0451 (`CM_Register_Notification` / `DeviceWatcher`). | M |
-| F4 | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. | S–M |
+| F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
 | F5 | **Group-file explorer (replaces GFM)** | Open `.8xg`/`.tig`/`.89g` files, list and extract their contents, build new groups, and send selected items. libtifiles already has the helpers. | M |
 | F6 | **Picture and image viewer** | Show `.8xi`/`.8ci`/`.8ca` and Pic variables as images, and convert PNG to calculator images. | M |
 | F7 | **Explorer integration** | Double-click `.8xp`/`.8xk`/… to open in CalcLink. Add "Send to calculator" to the right-click menu. Allow drag onto the app's taskbar or tray. | S–M |
@@ -156,6 +158,25 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F10 | **Screen recording** | Record animated GIF or MP4 from Live view, add a scale option, and include the frame or bezel. | S–M |
 | F11 | **Multiple calculators / classroom mode** | Send the same files to every connected calculator at once. tilibs is handle-based, so it's feasible, but the current UI assumes one session. | L |
 | F12 | **Emulator link** (TCP cable to TilEm or CEmu) | Develop and test without hardware. | M |
+
+**F4 as built.** What decided the design: a test backup of a TI-83 Plus (OS 1.16) with 64 items over SilverLink.
+* **Which format.**
+  * `.8xb` (2.6 s, 6.6 KB) is a RAM image. It holds none of the 37 archived programs or the 2 apps.
+  * `.tig` (70 s, 87 KB) holds all 64 items, each with its archived flag.
+  * So **Back up now** writes a `.tig` on flash models. It goes to `<Backups folder>\<model> (<last 4 ID digits>)\yyyy-MM-dd HH-mm-ss.tig`, and the backups folder defaults to `Documents\CalcLink Backups`.
+* **Why restore is selective.**
+  * Sending the `.tig` back as it is (`ticalcs_calc_send_tigroup`) would send each archived variable with the archived flag. The TI-83 Plus never answers such a transfer.
+  * Even in RAM, 80 KB of programs doesn't fit in its ~24 KB of RAM.
+* **How restore works.**
+  1. It unpacks the `.tig` and compares each item with the calculator's list.
+  2. It pre-selects only the missing items and warns when the selection exceeds free RAM. Free RAM now comes from `cl_get_memfree` on models whose version reply lacks it.
+  3. It sends the chosen files through the normal send path, which delivers them to RAM.
+  4. On models that can archive over the link, it archives what was archived; otherwise it lists those items for the user to archive on the calculator.
+* **Older formats.** Native RAM backups (`.8xb` and friends) can still be restored, after a "replaces all of RAM" confirmation.
+* **Hardware-tested on a TI-83 Plus.**
+  * Back up now saved 64 items (85.4 KB).
+  * The restore dialog listed all 64 as "On calculator", with nothing pre-selected.
+  * Restoring `A` (RAM) and `AVALANCH` (archived) replaced both with byte-identical contents. `AVALANCH` came back in RAM, and CalcLink listed it to be archived again.
 
 ## 4. Suggested order
 

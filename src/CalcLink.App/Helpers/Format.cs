@@ -24,6 +24,10 @@ public static class Format
 
     public static string Bytes(long bytes) => Bytes((ulong)Math.Max(0, bytes));
 
+    /// <summary>"12 KB free of 24 KB", or "12 KB free" when the total isn't reported (TI-83 Plus).</summary>
+    public static string Memory(ulong free, ulong total) =>
+        total > 0 ? $"{Bytes(free)} free of {Bytes(total)}" : $"{Bytes(free)} free";
+
     public static string Rate(double kbps) =>
         kbps <= 0 ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{kbps:0.0} KB/s");
 

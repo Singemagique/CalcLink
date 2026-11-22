@@ -74,6 +74,35 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    Text="Used by &#x201C;Receive to default folder&#x201D; on the Calculator page, which saves there without asking." />
                     </StackPanel>
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="BackupFolderLabel" Text="Backups folder" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE838;" FontSize="16" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       IsTextSelectionEnabled="True"
+                                       AutomationProperties.LabeledBy="{x:Bind BackupFolderLabel}"
+                                       ToolTipService.ToolTip="{x:Bind ViewModel.BackupFolderText, Mode=OneWay}"
+                                       Text="{x:Bind ViewModel.BackupFolderText, Mode=OneWay}" />
+                            <Button Grid.Column="2" VerticalAlignment="Center" Content="Browse…"
+                                    AutomationProperties.Name="Browse for backups folder"
+                                    Command="{x:Bind ViewModel.BrowseBackupFolderCommand}" />
+                            <Button Grid.Column="3" VerticalAlignment="Center" Content="Reset"
+                                    Command="{x:Bind ViewModel.ResetBackupFolderCommand}"
+                                    IsEnabled="{x:Bind ViewModel.HasCustomBackupFolder, Mode=OneWay}"
+                                    ToolTipService.ToolTip="Use Documents\CalcLink Backups"
+                                    AutomationProperties.Name="Reset backups folder to the default" />
+                        </Grid>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="&#x201C;Back up now&#x201D; on the Tools page saves here, in a subfolder for each calculator. Existing backups aren't moved when you change it." />
+                    </StackPanel>
                     <NumberBox Header="Link timeout (seconds)" HorizontalAlignment="Left" MinWidth="200"
                                Minimum="0.5" Maximum="60" SmallChange="0.5" LargeChange="5"
                                SpinButtonPlacementMode="Inline"

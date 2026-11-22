@@ -234,8 +234,29 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
             {
                 id = ReadCalcId(ct);
             }
-            return result with { CalcId = id };
+            result = result with { CalcId = id };
+            // Models whose version reply has no memory figures (the TI-73/83+/84+ over DBUS) answer a
+            // separate free-memory request; restore uses it to warn before sending more than fits.
+            if (result.RamFree == 0 && result.FlashFree == 0 && (Features & CalcFeatures.MemFree) != 0)
+            {
+                var (ram, flash) = ReadMemFree(ct);
+                result = result with { RamFree = ram, FlashFree = flash };
+            }
+            return result;
         }, ct);
+    }
+
+    // Like the ID-list: a failure only leaves the figures unknown, unless the link itself went away.
+    private (ulong Ram, ulong Flash) ReadMemFree(CancellationToken ct)
+    {
+        ulong ram = 0, flash = 0;
+        int rc = NativeMethods.cl_get_memfree(_handle, &ram, &flash);
+        if (rc == CalcErrorCodes.Ok)
+            return (ram, flash);
+        if (rc is CalcErrorCodes.Cancelled or CalcErrorCodes.CalcAbort || ct.IsCancellationRequested
+            || CalcErrorCodes.IsDisconnect(rc))
+            Check(rc, ct, "Reading free memory");
+        return (0, 0);
     }
 
     // The ID-list is a separate exchange. If it fails (and the link is still up), the rest of the

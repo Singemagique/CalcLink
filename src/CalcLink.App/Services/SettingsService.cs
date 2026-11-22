@@ -17,6 +17,9 @@ public sealed class AppSettings
     /// <summary>Folder used by "Receive to default folder"; null = not set.</summary>
     public string? DefaultReceiveFolder { get; set; }
 
+    /// <summary>Root of the dated backups made by "Back up now"; null = Documents\CalcLink Backups.</summary>
+    public string? BackupFolder { get; set; }
+
     /// <summary>Link timeout in seconds (tilibs default is 1.5 s).</summary>
     public double LinkTimeoutSeconds { get; set; } = 1.5;
 

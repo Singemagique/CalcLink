@@ -10,13 +10,15 @@
  *   --file-vars FILE    (alone) list the variables inside a variable/group file; no device needed
  *   --key CODE          press a key remotely (tilibs key code, e.g. 0x36 = MEM on a TI-83 Plus)
  *   --screen FILE.bmp   capture the calculator screen to a 32-bit BMP
+ *   --backup FILE       back up the calculator: FILE.tig = TIGroup (every variable, RAM and archive,
+ *                       plus apps), otherwise the model's native backup (e.g. .8xb = RAM image)
  *   --recv NAME DIR     receive the variable/app called NAME (display name) into DIR
  *   --send FILE         send FILE (variable, group, app, OS, backup, TIGroup) to the calculator
  *   --attr NAME N       set the attribute of NAME (0 = RAM, 3 = archived; CL_ATTR_*)
  *   --delete NAME       delete the variable called NAME from the calculator
  *
- * Actions run in the order: info + calc id + dirlist, --key, --screen, --recv, --send, --attr, --delete.
- * Options may be repeated where it makes sense (--key, --recv, --send, --attr, --delete). Exit code: 0 if every requested action
+ * Actions run in the order: info + calc id + dirlist, --key, --screen, --backup, --recv, --send, --attr,
+ * --delete. Options may be repeated where it makes sense (--key, --backup, --recv, --send, --attr, --delete). Exit code: 0 if every requested action
  * succeeded, 1 otherwise.
  *
  * Output is UTF-8 (the console code page is switched to 65001).
@@ -106,7 +108,8 @@ int main(int argc, char** argv)
     uint32_t keys[MAX_ACTIONS];
     const char* attr_names[MAX_ACTIONS];
     int32_t attr_values[MAX_ACTIONS];
-    int n_recv = 0, n_send = 0, n_delete = 0, n_keys = 0, n_attr = 0;
+    const char* backup_paths[MAX_ACTIONS];
+    int n_recv = 0, n_send = 0, n_delete = 0, n_keys = 0, n_attr = 0, n_backup = 0;
     int failures = 0;
     cl_device devs[8];
     int32_t n = 0;
@@ -150,6 +153,10 @@ int main(int argc, char** argv)
         {
             screen_path = argv[++i];
         }
+        else if (strcmp(argv[i], "--backup") == 0 && i + 1 < argc && n_backup < MAX_ACTIONS)
+        {
+            backup_paths[n_backup++] = argv[++i];
+        }
         else if (strcmp(argv[i], "--recv") == 0 && i + 2 < argc && n_recv < MAX_ACTIONS)
         {
             recv_names[n_recv] = argv[++i];
@@ -175,7 +182,7 @@ int main(int argc, char** argv)
         else
         {
             fprintf(stderr, "unknown or incomplete option: %s\n"
-                            "usage: clprobe [--list] [--model N] [--key CODE]... [--screen FILE.bmp] "
+                            "usage: clprobe [--list] [--model N] [--key CODE]... [--screen FILE.bmp] [--backup FILE]... "
                             "[--recv NAME DIR]... [--send FILE]... [--attr NAME N]... [--delete NAME]...\n", argv[i]);
             return 2;
         }
@@ -327,6 +334,22 @@ int main(int argc, char** argv)
             else
             {
                 print_error("cl_recv_screen", ret);
+                failures++;
+            }
+        }
+
+        for (int i = 0; i < n_backup; i++)
+        {
+            DWORD t0 = GetTickCount();
+            ret = cl_backup(s, backup_paths[i]);
+            fprintf(stderr, "\n");
+            if (ret == CL_OK)
+            {
+                printf("backup: %s ok (%.1f s)\n", backup_paths[i], (GetTickCount() - t0) / 1000.0);
+            }
+            else
+            {
+                print_error("cl_backup", ret);
                 failures++;
             }
         }

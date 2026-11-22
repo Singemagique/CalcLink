@@ -269,11 +269,11 @@ public sealed partial class CalculatorViewModel : ObservableObject
             var parts = new List<string>();
             if (info.RamUser > 0 || info.RamFree > 0)
             {
-                parts.Add($"RAM: {Format.Bytes(info.RamFree)} free of {Format.Bytes(info.RamUser)}");
+                parts.Add($"RAM: {Format.Memory(info.RamFree, info.RamUser)}");
             }
             if (info.FlashUser > 0 || info.FlashFree > 0)
             {
-                parts.Add($"Archive: {Format.Bytes(info.FlashFree)} free of {Format.Bytes(info.FlashUser)}");
+                parts.Add($"Archive: {Format.Memory(info.FlashFree, info.FlashUser)}");
             }
             return string.Join("   ·   ", parts);
         }
@@ -375,6 +375,9 @@ public sealed partial class CalculatorViewModel : ObservableObject
         NewFolderCommand.NotifyCanExecuteChanged();
         RunCommand.NotifyCanExecuteChanged();
     }
+
+    /// <summary>Another page changed the calculator (restore): re-read the list next time this page shows.</summary>
+    public void MarkStale() => _stale = true;
 
     public async Task OnNavigatedToAsync()
     {

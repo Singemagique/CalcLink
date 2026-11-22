@@ -1372,13 +1372,15 @@ CL_API int CL_CALL cl_get_memfree(cl_session* s, uint64_t* ram, uint64_t* flash)
         {
             return map_ret(s, ret);
         }
+        // Drivers preset both to (uint32_t)-1 and fill in only what the calculator reports (the
+        // TI-73/83+/84+ over DBUS report RAM only): map "not reported" to 0 = unknown.
         if (ram != nullptr)
         {
-            *ram = r32;
+            *ram = (r32 == UINT32_MAX) ? 0 : r32;
         }
         if (flash != nullptr)
         {
-            *flash = f32;
+            *flash = (f32 == UINT32_MAX) ? 0 : f32;
         }
         return CL_OK;
     });
