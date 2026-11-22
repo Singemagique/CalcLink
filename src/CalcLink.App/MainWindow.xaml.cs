@@ -147,6 +147,34 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    // Hold an auto-closing InfoBar open while the user is pointing at it or has focus in it.
+    private bool _infoPointer;
+    private bool _infoFocus;
+
+    private void OnInfoBarPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _infoPointer = true;
+        ViewModel.SetInfoHeld(true);
+    }
+
+    private void OnInfoBarPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+    {
+        _infoPointer = false;
+        ViewModel.SetInfoHeld(_infoFocus);
+    }
+
+    private void OnInfoBarGotFocus(object sender, RoutedEventArgs e)
+    {
+        _infoFocus = true;
+        ViewModel.SetInfoHeld(true);
+    }
+
+    private void OnInfoBarLostFocus(object sender, RoutedEventArgs e)
+    {
+        _infoFocus = false;
+        ViewModel.SetInfoHeld(_infoPointer);
+    }
+
     private void OnClosed(object sender, WindowEventArgs args)
     {
         // Normally already closed by OnAppWindowClosing; this covers closes that bypass it.

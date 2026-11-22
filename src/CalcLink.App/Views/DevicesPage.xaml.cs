@@ -1,3 +1,4 @@
+using CalcLink.App.Services;
 using CalcLink.App.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -30,11 +31,25 @@ public sealed partial class DevicesPage : Page
         }
     }
 
+    private void OnDisconnectClick(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel.DisconnectCommand.CanExecute(null))
+        {
+            ViewModel.DisconnectCommand.Execute(null);
+        }
+    }
+
+    // Double-click connects, or opens the Calculator page for the already connected device.
     private void OnDeviceDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
         if (ViewModel.SelectedDevice is { } item && ViewModel.ConnectCommand.CanExecute(item))
         {
             ViewModel.ConnectCommand.Execute(item);
         }
+    }
+
+    private async void OnDriverHelpClick(object sender, RoutedEventArgs e)
+    {
+        await App.GetService<DialogService>().ShowAsync(new DriverHelpDialog());
     }
 }

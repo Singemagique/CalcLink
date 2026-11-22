@@ -7,12 +7,25 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace CalcLink.App.ViewModels;
 
-public sealed class DeviceItem(DeviceDescriptor device)
+public sealed partial class DeviceItem(DeviceDescriptor device) : ObservableObject
 {
     public DeviceDescriptor Device { get; } = device;
     public string Name => string.IsNullOrWhiteSpace(Device.DisplayName) ? ModelNames.Of(Device.Model) : Device.DisplayName;
     public string ModelText => ModelNames.Of(Device.Model);
+
+    /// <summary>The model line is only shown when it adds something to the name.</summary>
+    public bool ShowModelText => !string.Equals(ModelText, Name, StringComparison.OrdinalIgnoreCase);
+
     public string ConnectAutomationName => $"Connect to {Name}";
+    public string DisconnectAutomationName => $"Disconnect from {Name}";
+
+    /// <summary>True while this device is the one with the open session.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotConnected))]
+    public partial bool IsConnected { get; set; }
+
+    public bool IsNotConnected => !IsConnected;
+
     public string Details
     {
         get
@@ -48,6 +61,12 @@ public sealed partial class DevicesViewModel : ObservableObject
         {
             ScanCommand.NotifyCanExecuteChanged();
             ConnectCommand.NotifyCanExecuteChanged();
+            DisconnectCommand.NotifyCanExecuteChanged();
+        };
+        connection.SessionChanged += (_, _) =>
+        {
+            UpdateConnectedState();
+            DisconnectCommand.NotifyCanExecuteChanged();
         };
         EmptyText = HasBackend
             ? "Press Scan to look for calculators."
@@ -60,30 +79,39 @@ public sealed partial class DevicesViewModel : ObservableObject
 
     public ObservableCollection<DeviceItem> Devices { get; } = [];
 
-
-
     public bool HasBackend => Connection.Service is not null;
     public bool HasBackendError => Connection.ServiceError is not null;
     public string BackendError => Connection.ServiceError ?? string.Empty;
     public bool IsSimulator => Connection.IsSimulator;
+    // The technical reason (e.g. why the native DLL didn't load) is shown in Settings → Calculator backend.
     public string SimulatorMessage =>
-        "No native backend or real hardware is in use: the calculators listed here are simulated. " +
-        (Connection.SimulatorReason is { } reason ? reason + " " : string.Empty) +
-        "Choose the backend in Settings.";
-    public string BackendText => $"Backend: {Connection.BackendName}";
+        "The calculators listed here are simulated; no real calculator is used. " +
+        (Connection.SimulatorReason is not null
+            ? "The real-hardware backend couldn't be loaded; see Settings for details."
+            : "Choose the backend in Settings.");
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ConnectCommand))]
     public partial DeviceItem? SelectedDevice { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTroubleshooting))]
     public partial bool IsScanning { get; private set; }
 
     [ObservableProperty]
     public partial string EmptyText { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTroubleshooting))]
     public partial bool IsEmpty { get; private set; } = true;
+
+    /// <summary>True once a scan has finished (successfully or not).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowTroubleshooting))]
+    public partial bool HasScanned { get; private set; }
+
+    /// <summary>The "Calculator not found?" checklist: shown after a scan that found nothing.</summary>
+    public bool ShowTroubleshooting => HasBackend && HasScanned && IsEmpty && !IsScanning;
 
     [ObservableProperty]
     public partial string ScanError { get; private set; } = string.Empty;
@@ -94,10 +122,20 @@ public sealed partial class DevicesViewModel : ObservableObject
     /// <summary>Called by the page; scans once automatically on first display.</summary>
     public void OnNavigatedTo()
     {
+        UpdateConnectedState();
         if (!_autoScanned && HasBackend)
         {
             _autoScanned = true;
             ScanCommand.Execute(null);
+        }
+    }
+
+    private void UpdateConnectedState()
+    {
+        var connected = Connection.Session?.Device;
+        foreach (var item in Devices)
+        {
+            item.IsConnected = connected is not null && item.Device == connected;
         }
     }
 
@@ -117,6 +155,8 @@ public sealed partial class DevicesViewModel : ObservableObject
             {
                 ScanError = Format.Error(ex);
                 HasScanError = true;
+                HasScanned = true;
+                EmptyText = IsEmpty ? "The scan didn't complete." : string.Empty;
             }
             if (outcome != OperationOutcome.Succeeded || devices is null)
             {
@@ -128,11 +168,11 @@ public sealed partial class DevicesViewModel : ObservableObject
             {
                 Devices.Add(new DeviceItem(d));
             }
-            SelectedDevice = Devices.FirstOrDefault();
+            UpdateConnectedState();
+            SelectedDevice = Devices.FirstOrDefault(i => i.IsConnected) ?? Devices.FirstOrDefault();
             IsEmpty = Devices.Count == 0;
-            EmptyText = IsEmpty
-                ? "No calculators found. Connect a calculator with a USB cable, turn it on, then press Scan."
-                : string.Empty;
+            HasScanned = true;
+            EmptyText = IsEmpty ? "No calculators found." : string.Empty;
 
             // Launched with files ("Open with CalcLink"): connect straight away when the choice is obvious;
             // otherwise the banner asks the user to pick a calculator.
@@ -156,6 +196,12 @@ public sealed partial class DevicesViewModel : ObservableObject
         {
             return;
         }
+        if (target.IsConnected)
+        {
+            // Already open: reconnecting would drop and reopen the link for nothing.
+            _navigation.Navigate(AppPage.Calculator);
+            return;
+        }
         var outcome = await _operations.RunAsync($"Connecting to {target.Name}",
             (_, ct) => Connection.ConnectAsync(target.Device, ct));
         if (outcome == OperationOutcome.Succeeded)
@@ -163,4 +209,9 @@ public sealed partial class DevicesViewModel : ObservableObject
             _navigation.Navigate(AppPage.Calculator);
         }
     }
+
+    private bool CanDisconnect() => Connection.IsConnected && !_operations.IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanDisconnect))]
+    private Task DisconnectAsync() => Connection.DisconnectAsync();
 }

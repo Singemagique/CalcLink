@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
+using Windows.System;
 
 namespace CalcLink.App.Views;
 
@@ -40,6 +41,37 @@ public sealed partial class CalculatorPage : Page
         {
             VariablesList.SelectedItems.Clear();
             VariablesList.SelectedItems.Add(item);
+        }
+    }
+
+    /// <summary>
+    /// The Narrow state collapses toolbar labels, but CommandBar keeps the commands it already moved to
+    /// overflow (it remembers their labelled widths). Re-enabling dynamic overflow makes it re-measure.
+    /// </summary>
+    private void OnWidthStateChanged(object sender, VisualStateChangedEventArgs e)
+    {
+        Toolbar.IsDynamicOverflowEnabled = false;
+        Toolbar.UpdateLayout();
+        Toolbar.IsDynamicOverflowEnabled = true;
+    }
+
+    /// <summary>Del deletes only while the list has focus, so typing in Find never deletes variables.</summary>
+    private void OnListKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key == VirtualKey.Delete && ViewModel.DeleteCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            ViewModel.DeleteCommand.Execute(null);
+        }
+    }
+
+    /// <summary>Ctrl+S: the SplitButton has no built-in accelerator invoke, so run its main action here.</summary>
+    private void OnReceiveAcceleratorInvoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        args.Handled = true;
+        if (ViewModel.ReceiveCommand.CanExecute(null))
+        {
+            ViewModel.ReceiveCommand.Execute(null);
         }
     }
 

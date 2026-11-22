@@ -56,6 +56,46 @@ B3 and B9 were checked in the app against the simulator.
 
 ## 2. UI/UX
 
+**Fixed since this review: every item in this section.** All four pages, the shell and Settings were checked in the app at 720×520 and 1180×780 against the simulator. The "nothing found" help was checked for real with no cable attached. The main changes:
+* **Layout:**
+  * The navigation pane collapses to an icon rail below 1008 DIP.
+  * The status bar has two rows: transfer progress, then the connection.
+  * The Calculator page adapts to its own width (`ElementWidthTrigger`).
+* **Commands:**
+  * Commands a model can't do are hidden, not disabled. That covers New folder, Group by folder, Rename, Archive, Move to RAM and Run, plus the Clock card body and the OS warning.
+  * Run needs exactly one program or app. Archive and Move to RAM depend on the selection, and Move to RAM no longer unlocks locked items.
+* **Progress:**
+  * Long operations show "Item n of m · rate · ~m:ss left" and progress on the taskbar button.
+  * Success messages close by themselves.
+  * "Connection lost" is no longer replaced by "…was cancelled".
+* **Errors:** dialogs show the code once, in a Details line, plus a recovery hint (`ErrorHints`).
+* **Devices:**
+  * A "Calculator not found?" checklist with driver help.
+  * The connected row shows a Connected badge and Disconnect.
+  * The duplicate toolbar Connect and the backend version string are gone.
+* **Calculator page:**
+  * A compact Show · View ▾ · Find row.
+  * One vocabulary: Location = RAM / Archive, commands Archive and Move to RAM.
+  * Friendly type names, with the raw code in the tooltip.
+  * Distinct icons.
+  * The Delete key acts only on the list.
+  * Receive is a split button that can send to the default folder.
+* **Tools:**
+  * A battery warning appears only when the battery is low.
+  * Distinct icons and F5 for Refresh.
+* **Screen:**
+  * Capture shows a busy state.
+  * Live view reports its real frame rate.
+* **Settings:**
+  * The default folder is shown as plain text.
+  * "Restart now" and "Open settings folder" buttons.
+  * The license text is collapsed.
+* **Theming:** secondary text uses theme brushes instead of `Opacity`.
+
+**Not yet tested live:**
+* The "Connection lost" flow (the simulator can't drop a link on demand).
+* The Capture busy ring on a slow serial link.
+
 ### High
 1. **The layout breaks at the 720×520 minimum.** The navigation pane is forced open (`PaneDisplayMode="Left"`), leaving about 500 DIP for content. The Calculator options row needs about 700 DIP and its columns about 570, so the Find box and the Size and Attribute columns get clipped; the transfer status bar clips too.
    * Use `PaneDisplayMode="Auto"`.

@@ -69,6 +69,15 @@ public static class ModelNames
         _ => null,
     };
 
+    /// <summary>
+    /// Whether "Run" (remote execution of a program or app) can work on <paramref name="model"/>.
+    /// tilibs has no OPS_* bit for it; these are the models whose driver only has a no-op execute,
+    /// which cl_execute (native/src/calclink.cc) reports as CL_E_NOT_SUPPORTED. Keep the two lists in sync.
+    /// </summary>
+    public static bool SupportsRemoteExecute(CalcModel model) =>
+        model is not (CalcModel.None or CalcModel.TI80 or CalcModel.TI82 or CalcModel.TI85 or CalcModel.TI86
+            or CalcModel.Nspire);
+
     /// <summary>Known operating-system upgrade file extensions (TI-73 ... TI-Nspire CX II).</summary>
     public static readonly IReadOnlyList<string> OsExtensions =
     [

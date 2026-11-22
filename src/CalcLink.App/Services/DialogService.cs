@@ -21,17 +21,22 @@ public sealed class DialogService(WindowService window)
 
     public Task ShowErrorAsync(string title, Exception ex)
     {
-        var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(Wrap(Format.Error(ex)));
-        if (ex is CalcLinkException { Code: var code } && ex is not FeatureNotSupportedException)
+        // Message, then what to try (when we know), then the code once, small, for support.
+        var panel = new StackPanel { Spacing = 12 };
+        panel.Children.Add(Wrap(Format.ErrorMessage(ex)));
+        if (ErrorHints.For(ex) is { } hint)
         {
-            panel.Children.Add(new TextBlock
-            {
-                Text = code > 0 ? $"tilibs error {code}" : $"CalcLink error {code}",
-                Style = (Style)Application.Current.Resources["CaptionTextBlockStyle"],
-                Opacity = 0.7,
-                IsTextSelectionEnabled = true,
-            });
+            var hintBlock = Wrap(hint);
+            hintBlock.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            panel.Children.Add(hintBlock);
+        }
+        if (Format.ErrorDetails(ex) is { } details)
+        {
+            var detailsBlock = Wrap(details);
+            // The style's ThemeResource foreground follows the dialog's theme (a brush looked up here
+            // would follow the app's, which differs when the user overrides the theme in Settings).
+            detailsBlock.Style = (Style)Application.Current.Resources["SecondaryCaptionTextStyle"];
+            panel.Children.Add(detailsBlock);
         }
         return ShowAsync(new ContentDialog
         {

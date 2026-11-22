@@ -30,10 +30,13 @@
                     <TextBlock Text="Capture" />
                 </StackPanel>
             </Button>
+            <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.ShowCaptureProgress, Mode=OneWay}"
+                          Visibility="{x:Bind ViewModel.ShowCaptureProgress, Mode=OneWay}"
+                          AutomationProperties.Name="Capturing the screen" />
             <ToggleButton IsChecked="{x:Bind ViewModel.IsLive, Mode=TwoWay}"
                           AutomationProperties.Name="Live view"
-                          IsEnabled="{x:Bind ViewModel.CanCapture, Mode=OneWay}"
-                          ToolTipService.ToolTip="Capture continuously (about 3 frames per second)">
+                          IsEnabled="{x:Bind ViewModel.CanToggleLive, Mode=OneWay}"
+                          ToolTipService.ToolTip="{x:Bind ViewModel.LiveTip, Mode=OneWay}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE714;" FontSize="16" />
                     <TextBlock Text="Live" />
@@ -70,13 +73,15 @@
                            Height="{x:Bind ViewModel.DisplayHeight, Mode=OneWay}"
                            AutomationProperties.Name="Calculator screen" />
                 </Border>
-                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Opacity="0.7" TextWrapping="Wrap"
+                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                            Text="Press Capture to grab the calculator screen, or turn on Live for a continuous view."
                            Visibility="{x:Bind h:Format.CollapsedIf(ViewModel.HasImage), Mode=OneWay}" />
             </Grid>
         </ScrollViewer>
 
-        <TextBlock Grid.Row="3" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}"
+        <TextBlock Grid.Row="3" Style="{StaticResource CaptionTextBlockStyle}"
+                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                    Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
     </Grid>
 </Page>

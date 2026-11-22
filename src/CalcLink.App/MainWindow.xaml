@@ -26,15 +26,22 @@
             <Image Source="ms-appx:///Assets/CalcLink.ico" Width="16" Height="16" VerticalAlignment="Center" />
             <TextBlock Grid.Column="1" Text="CalcLink" VerticalAlignment="Center"
                        Style="{StaticResource CaptionTextBlockStyle}" />
-            <TextBlock Grid.Column="2" VerticalAlignment="Center" Opacity="0.6"
-                       Style="{StaticResource CaptionTextBlockStyle}"
+            <!-- Right margin keeps the text clear of the caption buttons (min/max/close). -->
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="0,0,150,0"
+                       Style="{StaticResource SecondaryCaptionTextStyle}"
+                       TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                        Text="{x:Bind ViewModel.Connection.ModelName, Mode=OneWay}" />
         </Grid>
 
+        <!-- Auto: expanded pane on wide windows, a 48 DIP icon rail (compact) below 1008 DIP, so the
+             720 DIP minimum still leaves ~670 DIP for pages. Minimal (hamburger only) below 641 DIP
+             can't happen at the minimum window size but is handled by NavigationView. -->
         <NavigationView x:Name="NavView" Grid.Row="1"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="False"
-                        PaneDisplayMode="Left"
+                        PaneDisplayMode="Auto"
+                        CompactModeThresholdWidth="641"
+                        ExpandedModeThresholdWidth="1008"
                         OpenPaneLength="220"
                         IsTitleBarAutoPaddingEnabled="False"
                         SelectionChanged="OnNavigationSelectionChanged">
@@ -81,58 +88,78 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <InfoBar Margin="16,8,16,0"
+                <!-- Success/informational messages close themselves after a few seconds (ShellViewModel);
+                     hovering or focusing the bar holds it open. -->
+                <InfoBar x:Name="ShellInfoBar" Margin="16,8,16,0"
                          IsOpen="{x:Bind ViewModel.IsInfoOpen, Mode=TwoWay}"
                          Title="{x:Bind ViewModel.InfoTitle, Mode=OneWay}"
                          Message="{x:Bind ViewModel.InfoMessage, Mode=OneWay}"
-                         Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}" />
+                         Severity="{x:Bind ViewModel.InfoSeverity, Mode=OneWay}"
+                         PointerEntered="OnInfoBarPointerEntered"
+                         PointerExited="OnInfoBarPointerExited"
+                         PointerCanceled="OnInfoBarPointerExited"
+                         GotFocus="OnInfoBarGotFocus"
+                         LostFocus="OnInfoBarLostFocus" />
 
                 <Frame x:Name="ContentFrame" Grid.Row="1" />
 
-                <!-- Status bar: connection (left) + transfer panel (right). -->
-                <Grid Grid.Row="2" Padding="16,8" ColumnSpacing="16" MinHeight="48"
-                      Background="{ThemeResource LayerFillColorDefaultBrush}"
-                      BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <!-- Status bar: transfer row (only while busy) above the connection row, so neither
+                     has to share the width and nothing clips at the 720 DIP minimum. -->
+                <StackPanel Grid.Row="2"
+                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
 
-                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                        <FontIcon FontSize="14" Glyph="&#xE703;"
-                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                  Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}" />
-                        <FontIcon FontSize="14" Glyph="&#xE8CD;" Opacity="0.6"
-                                  Visibility="{x:Bind h:Format.CollapsedIf(ViewModel.Connection.IsConnected), Mode=OneWay}" />
-                        <TextBlock VerticalAlignment="Center"
-                                   Text="{x:Bind ViewModel.Connection.StatusText, Mode=OneWay}"
-                                   AutomationProperties.LiveSetting="Polite" />
-                        <Button Content="Disconnect" Margin="4,0,0,0"
-                                Command="{x:Bind ViewModel.DisconnectCommand}"
-                                Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}" />
-                    </StackPanel>
-
-                    <Grid Grid.Column="1" ColumnSpacing="12" HorizontalAlignment="Right"
+                    <Grid Padding="16,10,16,0" ColumnSpacing="12" RowSpacing="6"
                           Visibility="{x:Bind ViewModel.Operations.IsBusy, Mode=OneWay}">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="220" />
+                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="360"
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock VerticalAlignment="Center" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
                                    Text="{x:Bind ViewModel.Operations.StatusText, Mode=OneWay}"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.Operations.StatusText, Mode=OneWay}"
                                    AutomationProperties.LiveSetting="Polite" />
-                        <ProgressBar Grid.Column="1" VerticalAlignment="Center" Maximum="100"
+                        <!-- Item n of m · rate · time left. Changes on every report, so not a live region. -->
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" TextWrapping="NoWrap"
+                                   Style="{StaticResource SecondaryTextStyle}"
+                                   Text="{x:Bind ViewModel.Operations.DetailText, Mode=OneWay}" />
+                        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2" VerticalAlignment="Center" Maximum="100"
                                      IsIndeterminate="{x:Bind ViewModel.Operations.IsIndeterminate, Mode=OneWay}"
                                      Value="{x:Bind ViewModel.Operations.ProgressValue, Mode=OneWay}"
-                                     AutomationProperties.Name="Transfer progress" />
-                        <TextBlock Grid.Column="2" VerticalAlignment="Center" Opacity="0.7" MinWidth="64"
-                                   Text="{x:Bind ViewModel.Operations.RateText, Mode=OneWay}" />
-                        <Button Grid.Column="3" Content="Cancel"
+                                     AutomationProperties.Name="Transfer progress"
+                                     AutomationProperties.HelpText="{x:Bind ViewModel.Operations.DetailText, Mode=OneWay}" />
+                        <Button Grid.Column="2" Grid.RowSpan="2" VerticalAlignment="Center" Content="Cancel"
                                 Command="{x:Bind ViewModel.Operations.CancelCommand}" />
                     </Grid>
-                </Grid>
+
+                    <Grid Padding="16,8" ColumnSpacing="10" MinHeight="48">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon FontSize="14" Glyph="&#xE703;" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                  Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}" />
+                        <FontIcon FontSize="14" Glyph="&#xE8CD;" VerticalAlignment="Center"
+                                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                  Visibility="{x:Bind h:Format.CollapsedIf(ViewModel.Connection.IsConnected), Mode=OneWay}" />
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                   Text="{x:Bind ViewModel.Connection.StatusText, Mode=OneWay}"
+                                   ToolTipService.ToolTip="{x:Bind ViewModel.Connection.StatusText, Mode=OneWay}"
+                                   AutomationProperties.LiveSetting="Polite" />
+                        <Button Grid.Column="2" Content="Disconnect"
+                                Command="{x:Bind ViewModel.DisconnectCommand}"
+                                Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}" />
+                    </Grid>
+                </StackPanel>
             </Grid>
         </NavigationView>
     </Grid>

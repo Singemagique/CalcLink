@@ -61,7 +61,6 @@ public sealed partial class ToolsViewModel : ObservableObject
     public bool ShowExactMath => Connection.Info?.ExactMath == true;
     public bool ShowColor => Connection.Info?.ColorScreen == true;
     public bool ShowBatteryLow => Connection.Info?.BatteryOk == false;
-    public bool ShowBatteryOk => Connection.Info?.BatteryOk == true;
 
     [ObservableProperty]
     public partial string ClockText { get; private set; }
@@ -75,20 +74,48 @@ public sealed partial class ToolsViewModel : ObservableObject
     private bool Idle => Connection.IsConnected && !_operations.IsBusy;
 
     public bool CanRefreshInfo => Idle;
-    public bool CanClock => Idle && Connection.Supports(CalcFeatures.Clock) && Connection.Info?.ClockSupport != false;
+    public bool CanClock => Idle && HasClock;
     public bool CanBackup => Idle && Connection.Supports(CalcFeatures.Backup);
     public bool CanDumpRom => Idle && Connection.Supports(CalcFeatures.RomDump);
     public bool CanSendOs => Idle && Connection.Supports(CalcFeatures.Os);
 
-    public string ClockNote => NoteFor(CalcFeatures.Clock, Connection.Info?.ClockSupport == false);
-    public string BackupNote => NoteFor(CalcFeatures.Backup);
-    public string RomNote => NoteFor(CalcFeatures.RomDump);
-    public string OsNote => NoteFor(CalcFeatures.Os);
+    /// <summary>The connected model has a clock we can read and set: the Clock card shows its pickers and buttons.</summary>
+    public bool HasClock => Connection.Supports(CalcFeatures.Clock) && Connection.Info?.ClockSupport != false;
 
-    private string NoteFor(CalcFeatures feature, bool forceUnsupported = false) =>
-        !Connection.IsConnected ? "Not connected"
-        : !Connection.Supports(feature) || forceUnsupported ? $"Not supported on {Connection.ModelName}"
-        : string.Empty;
+    /// <summary>The OS card's "before upgrading" warning only makes sense where Send OS is available.</summary>
+    public bool ShowOsWarning => Connection.Supports(CalcFeatures.Os);
+
+    // One-line notes that replace a card's controls (or explain disabled ones) when a feature is unavailable.
+    // Tooltips can't do this job: WinUI doesn't show them on disabled controls.
+
+    public string ClockNote =>
+        !Connection.IsConnected ? "Connect a calculator to read or set its clock."
+        : HasClock ? string.Empty
+        : $"The {Connection.ModelName} has no clock that CalcLink can set.";
+
+    public string BackupRomNote
+    {
+        get
+        {
+            if (!Connection.IsConnected)
+            {
+                return "Connect a calculator to back it up or dump its ROM.";
+            }
+            bool backup = Connection.Supports(CalcFeatures.Backup), rom = Connection.Supports(CalcFeatures.RomDump);
+            return (backup, rom) switch
+            {
+                (false, false) => $"Backup and ROM dump aren't supported on the {Connection.ModelName}.",
+                (false, true) => $"Backup isn't supported on the {Connection.ModelName}.",
+                (true, false) => $"ROM dump isn't supported on the {Connection.ModelName}.",
+                _ => string.Empty,
+            };
+        }
+    }
+
+    public string OsNote =>
+        !Connection.IsConnected ? "Connect a calculator to upgrade its operating system."
+        : Connection.Supports(CalcFeatures.Os) ? string.Empty
+        : $"OS upgrades aren't supported on the {Connection.ModelName}.";
 
     public void OnNavigatedTo()
     {

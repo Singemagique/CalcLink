@@ -27,14 +27,55 @@ public static class Format
     public static string Rate(double kbps) =>
         kbps <= 0 ? string.Empty : string.Create(CultureInfo.CurrentCulture, $"{kbps:0.0} KB/s");
 
-    /// <summary>Message for any exception, including the native code for <see cref="CalcLinkException"/>.</summary>
+    /// <summary>
+    /// One-line message for any exception, including the native code for <see cref="CalcLinkException"/>.
+    /// For inline text (InfoBars, page banners); dialogs use <see cref="ErrorMessage"/> plus
+    /// <see cref="ErrorDetails"/> so the code appears only once.
+    /// </summary>
     public static string Error(Exception ex) => ex switch
     {
         FeatureNotSupportedException f => f.Message,
         CalcLinkException c => $"{c.Message} (error code {c.Code})",
+        _ => ErrorMessage(ex),
+    };
+
+    /// <summary>The message alone, without the error code.</summary>
+    public static string ErrorMessage(Exception ex) => ex switch
+    {
         NotImplementedException => $"{ex.Message} This part of CalcLink is not implemented yet.",
         _ => ex.Message,
     };
+
+    /// <summary>Small "Details" line for dialogs (error code or exception type); null if there is nothing useful.</summary>
+    public static string? ErrorDetails(Exception ex) => ex switch
+    {
+        FeatureNotSupportedException => null,
+        CalcLinkException { Code: > 0 } c => $"Details: tilibs error {c.Code}",
+        CalcLinkException c => $"Details: CalcLink error {c.Code}",
+        NotImplementedException => null,
+        _ => $"Details: {ex.GetType().Name}",
+    };
+
+    /// <summary>"~1:20 left" style estimate.</summary>
+    public static string TimeLeft(TimeSpan remaining)
+    {
+        double s = remaining.TotalSeconds;
+        if (s < 10)
+        {
+            return "a few seconds left";
+        }
+        // Round up to 5 s so the text doesn't flicker on every report.
+        long total = (long)Math.Ceiling(s / 5) * 5;
+        if (total < 60)
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"~{total} s left");
+        }
+        if (total < 3600)
+        {
+            return string.Create(CultureInfo.CurrentCulture, $"~{total / 60}:{total % 60:00} left");
+        }
+        return string.Create(CultureInfo.CurrentCulture, $"~{total / 3600} h {total % 3600 / 60:00} min left");
+    }
 
     public static bool IsCancellation(Exception ex) =>
         ex is OperationCanceledException || ex is CalcLinkException { IsCancellation: true };

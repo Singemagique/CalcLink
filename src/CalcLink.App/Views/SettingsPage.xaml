@@ -31,36 +31,54 @@
                         <x:String>Native (real calculators via tilibs)</x:String>
                         <x:String>Simulator (no hardware)</x:String>
                     </RadioButtons>
-                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Text="{x:Bind ViewModel.CurrentBackendText, Mode=OneWay}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="{x:Bind ViewModel.CurrentBackendText, Mode=OneWay}" />
                     <InfoBar IsOpen="{x:Bind ViewModel.RestartRequired, Mode=OneWay}" IsClosable="False" Severity="Informational"
-                             Title="Restart required" Message="Restart CalcLink to switch to the selected backend." />
+                             Title="Restart required" Message="Restart CalcLink to switch to the selected backend.">
+                        <InfoBar.ActionButton>
+                            <Button Content="Restart now" Command="{x:Bind ViewModel.RestartCommand}"
+                                    ToolTipService.ToolTip="Close and reopen CalcLink with the selected backend" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
                 </StackPanel>
             </Border>
 
             <Border Style="{StaticResource CardBorderStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Transfers" Style="{StaticResource SubtitleTextBlockStyle}" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBox Header="Default receive folder" IsReadOnly="True" PlaceholderText="Not set"
-                                 Text="{x:Bind ViewModel.DefaultReceiveFolder, Mode=OneWay}" />
-                        <Button Grid.Column="1" VerticalAlignment="Bottom" Content="Browse…"
-                                Command="{x:Bind ViewModel.BrowseFolderCommand}" />
-                        <Button Grid.Column="2" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.ClearFolderCommand}"
-                                IsEnabled="{x:Bind ViewModel.HasDefaultFolder, Mode=OneWay}"
-                                AutomationProperties.Name="Clear default receive folder" ToolTipService.ToolTip="Clear">
-                            <FontIcon Glyph="&#xE711;" FontSize="14" />
-                        </Button>
-                    </Grid>
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="ReceiveFolderLabel" Text="Default receive folder" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE838;" FontSize="16" VerticalAlignment="Center"
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <!-- Plain text, not a read-only TextBox, so it doesn't look editable. -->
+                            <TextBlock Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                                       IsTextSelectionEnabled="True"
+                                       AutomationProperties.LabeledBy="{x:Bind ReceiveFolderLabel}"
+                                       ToolTipService.ToolTip="{x:Bind ViewModel.DefaultReceiveFolderText, Mode=OneWay}"
+                                       Text="{x:Bind ViewModel.DefaultReceiveFolderText, Mode=OneWay}" />
+                            <Button Grid.Column="2" VerticalAlignment="Center" Content="Browse…"
+                                    AutomationProperties.Name="Browse for default receive folder"
+                                    Command="{x:Bind ViewModel.BrowseFolderCommand}" />
+                            <Button Grid.Column="3" VerticalAlignment="Center" Content="Clear"
+                                    Command="{x:Bind ViewModel.ClearFolderCommand}"
+                                    IsEnabled="{x:Bind ViewModel.HasDefaultFolder, Mode=OneWay}"
+                                    AutomationProperties.Name="Clear default receive folder" />
+                        </Grid>
+                        <TextBlock TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="Used by &#x201C;Receive to default folder&#x201D; on the Calculator page, which saves there without asking." />
+                    </StackPanel>
                     <NumberBox Header="Link timeout (seconds)" HorizontalAlignment="Left" MinWidth="200"
                                Minimum="0.5" Maximum="60" SmallChange="0.5" LargeChange="5"
                                SpinButtonPlacementMode="Inline"
                                Value="{x:Bind ViewModel.LinkTimeoutSeconds, Mode=TwoWay}" />
-                    <TextBlock Opacity="0.7" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Style="{StaticResource CaptionTextBlockStyle}"
                                Text="How long to wait for the calculator to answer before giving up. Increase it for slow or busy calculators. Applies to new connections." />
                 </StackPanel>
             </Border>
@@ -73,13 +91,18 @@
                                Text="CalcLink links TI graphing calculators (TI-84 Plus CE, TI-Nspire, TI-89 and more) to your PC." />
                     <TextBlock TextWrapping="Wrap"
                                Text="Built on tilibs by Romain Liévin, Kevin Kofler, Lionel Debroux and contributors." />
-                    <TextBlock TextWrapping="Wrap" Opacity="0.8"
-                               Text="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." />
-                    <HyperlinkButton Content="GNU General Public License, version 2" Padding="0"
-                                     NavigateUri="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html" />
-                    <TextBlock Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" IsTextSelectionEnabled="True"
-                               Text="{x:Bind ViewModel.SettingsPath}" />
-                    <TextBlock Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                    <Expander Header="License" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="8">
+                            <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 2 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE." />
+                            <HyperlinkButton Content="GNU General Public License, version 2" Padding="0"
+                                             NavigateUri="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html" />
+                        </StackPanel>
+                    </Expander>
+                    <HyperlinkButton Content="Open settings folder" Padding="0"
+                                     Command="{x:Bind ViewModel.OpenSettingsFolderCommand}"
+                                     ToolTipService.ToolTip="{x:Bind ViewModel.SettingsPath}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorTertiaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                Text="TI-84 Plus, TI-Nspire and TI-89 are trademarks of Texas Instruments. CalcLink is not affiliated with Texas Instruments." />
                 </StackPanel>
             </Border>

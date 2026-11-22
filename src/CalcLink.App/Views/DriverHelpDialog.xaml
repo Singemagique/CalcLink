@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Short, in-app version of docs/DRIVERS.md §3 (setting up WinUSB with Zadig). -->
+<ContentDialog
+    x:Class="CalcLink.App.Views.DriverHelpDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Install the WinUSB driver"
+    CloseButtonText="Close"
+    DefaultButton="Close">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" MaxWidth="480">
+            <TextBlock TextWrapping="Wrap"
+                       Text="CalcLink reaches calculators through WinUSB, a driver built into Windows. Windows doesn't choose it by itself, so set it up once for each calculator model (or SilverLink cable) with the free Zadig tool:" />
+
+            <StackPanel Spacing="6">
+                <TextBlock TextWrapping="Wrap" Text="1.  Connect the calculator (or the SilverLink cable with the calculator plugged in) and switch it on." />
+                <TextBlock TextWrapping="Wrap" Text="2.  Close TI Connect, TI Connect CE and TI-Nspire Computer Link." />
+                <TextBlock TextWrapping="Wrap" Text="3.  Download Zadig from its official site and run it. Windows asks for administrator rights." />
+                <TextBlock TextWrapping="Wrap" Text="4.  Choose Options → List All Devices, then pick the calculator. A SilverLink is listed as &#x201C;TI-GRAPH LINK USB&#x201D;. Its USB ID starts with 0451." />
+                <TextBlock TextWrapping="Wrap" Text="5.  Select WinUSB as the driver and click Replace Driver (or Install Driver)." />
+                <TextBlock TextWrapping="Wrap" Text="6.  Back in CalcLink, press Scan." />
+            </StackPanel>
+
+            <HyperlinkButton Content="Open the Zadig website (zadig.akeo.ie)" Padding="0"
+                             NavigateUri="https://zadig.akeo.ie/" />
+
+            <TextBlock TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Text="Only one driver can own a device. While the calculator uses WinUSB, TI Connect won't see it. To give it back to TI Connect, open Device Manager, double-click the calculator under Universal Serial Bus devices and choose Driver → Roll Back Driver. The full guide is DRIVERS.md in the CalcLink documentation." />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

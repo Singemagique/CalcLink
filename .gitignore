@@ -12,3 +12,6 @@ BundleArtifacts/
 *.appx
 TestResults/
 artifacts/
+
+# Claude Code agent worktrees
+.claude/worktrees/

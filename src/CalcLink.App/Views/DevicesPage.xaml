@@ -9,6 +9,15 @@
     xmlns:h="using:CalcLink.App.Helpers"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <!-- One line of the "Calculator not found?" checklist. -->
+        <Style x:Key="CheckNumberStyle" TargetType="TextBlock" BasedOn="{StaticResource BodyStrongTextBlockStyle}">
+            <Setter Property="MinWidth" Value="16" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+        </Style>
+    </Page.Resources>
+
     <Grid Padding="24,16,24,16" RowSpacing="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -19,7 +28,7 @@
 
         <StackPanel>
             <TextBlock Text="Devices" Style="{StaticResource PageTitleStyle}" />
-            <TextBlock Opacity="0.7" TextWrapping="Wrap"
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                        Text="Connect a TI graphing calculator with a USB cable (or a SilverLink / serial link), switch it on, then scan." />
         </StackPanel>
 
@@ -47,12 +56,8 @@
                      Message="{x:Bind ViewModel.ScanError, Mode=OneWay}" />
         </StackPanel>
 
-        <Grid Grid.Row="2" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
+        <!-- Connecting is per row (button or double-click); the toolbar only scans. -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12">
             <Button Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.ScanCommand}"
                     AutomationProperties.Name="Scan"
                     ToolTipService.ToolTip="Scan for connected calculators (F5)">
@@ -64,17 +69,7 @@
                     <TextBlock Text="Scan" />
                 </StackPanel>
             </Button>
-            <Button Grid.Column="1" Command="{x:Bind ViewModel.ConnectCommand}"
-                    AutomationProperties.Name="Connect to selected calculator"
-                    ToolTipService.ToolTip="Connect to the selected device">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE703;" FontSize="16" />
-                    <TextBlock Text="Connect" />
-                </StackPanel>
-            </Button>
-            <TextBlock Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Opacity="0.7"
-                       Text="{x:Bind ViewModel.BackendText, Mode=OneWay}" />
-        </Grid>
+        </StackPanel>
 
         <Grid Grid.Row="3">
             <ListView x:Name="DevicesList"
@@ -94,24 +89,101 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE8EF;" FontSize="28" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                                <TextBlock Text="{x:Bind ModelText}" Opacity="0.8" />
-                                <TextBlock Text="{x:Bind Details}" Opacity="0.6" Style="{StaticResource CaptionTextBlockStyle}" />
+                                <TextBlock Text="{x:Bind Name}" Style="{StaticResource BodyStrongTextBlockStyle}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind ModelText}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Visibility="{x:Bind ShowModelText}" />
+                                <TextBlock Text="{x:Bind Details}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                           Style="{StaticResource CaptionTextBlockStyle}" />
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Connect" Tag="{x:Bind}" Click="OnConnectClick"
-                                    AutomationProperties.Name="{x:Bind ConnectAutomationName}"
-                                    VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <Border Style="{StaticResource BadgeBorderStyle}" VerticalAlignment="Center"
+                                        Visibility="{x:Bind IsConnected, Mode=OneWay}">
+                                    <TextBlock Text="Connected" Style="{StaticResource BadgeTextStyle}" />
+                                </Border>
+                                <Button Content="Connect" Tag="{x:Bind}" Click="OnConnectClick"
+                                        AutomationProperties.Name="{x:Bind ConnectAutomationName}"
+                                        Visibility="{x:Bind IsNotConnected, Mode=OneWay}" />
+                                <Button Content="Disconnect" Tag="{x:Bind}" Click="OnDisconnectClick"
+                                        AutomationProperties.Name="{x:Bind DisconnectAutomationName}"
+                                        ToolTipService.ToolTip="Close the connection to this calculator"
+                                        Visibility="{x:Bind IsConnected, Mode=OneWay}" />
+                            </StackPanel>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
 
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="420"
-                        Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
-                <ProgressRing IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" Width="32" Height="32" />
-                <TextBlock TextAlignment="Center" TextWrapping="Wrap" Opacity="0.7"
-                           Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}" />
-            </StackPanel>
+            <!-- Empty state: progress while scanning, then a troubleshooting checklist if nothing was found. -->
+            <ScrollViewer Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" VerticalScrollBarVisibility="Auto">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Top" Spacing="12" MaxWidth="560"
+                            Padding="0,16,0,8">
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsScanning, Mode=OneWay}" Width="32" Height="32"
+                                  Visibility="{x:Bind ViewModel.IsScanning, Mode=OneWay}" />
+                    <TextBlock TextAlignment="Center" TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}"
+                               Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}" />
+
+                    <Expander x:Name="TroubleshootingExpander" Header="Calculator not found?" IsExpanded="True"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              Visibility="{x:Bind ViewModel.ShowTroubleshooting, Mode=OneWay}">
+                        <StackPanel Spacing="12">
+                            <TextBlock TextWrapping="Wrap" Text="Check these, then scan again:" />
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="1." Style="{StaticResource CheckNumberStyle}" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                           Text="The calculator is switched on and showing its home screen (on a TI-83/84: 2nd, QUIT, then CLEAR)." />
+                            </Grid>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="2." Style="{StaticResource CheckNumberStyle}" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                           Text="The cable is pushed firmly into both the PC and the calculator. A SilverLink plug must go in past the first click. Some USB cables only carry power; try another one." />
+                            </Grid>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="3." Style="{StaticResource CheckNumberStyle}" />
+                                <TextBlock Grid.Column="1" TextWrapping="Wrap"
+                                           Text="TI Connect, TI Connect CE and TI-Nspire Computer Link are closed. While they run, they keep the calculator to themselves." />
+                            </Grid>
+
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="4." Style="{StaticResource CheckNumberStyle}" />
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock TextWrapping="Wrap"
+                                               Text="The WinUSB driver is set up. CalcLink can't use TI's own driver: SilverLink cables and calculators used with TI Connect need WinUSB, installed once with Zadig." />
+                                    <HyperlinkButton Content="How to install the driver" Padding="0"
+                                                     Click="OnDriverHelpClick" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Button Style="{StaticResource AccentButtonStyle}" Command="{x:Bind ViewModel.ScanCommand}"
+                                    AutomationProperties.Name="Scan again">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" />
+                                    <TextBlock Text="Scan again" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </Page>

@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using System.Reflection;
 using CalcLink.App.Services;
 using CalcLink.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Windows.AppLifecycle;
 
 namespace CalcLink.App.ViewModels;
 
@@ -12,15 +14,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly WindowService _window;
     private readonly PickerService _pickers;
     private readonly DialogService _dialogs;
+    private readonly OperationService _operations;
     private bool _loading;
 
     public SettingsViewModel(SettingsService settings, WindowService window, PickerService pickers,
-        DialogService dialogs, ConnectionService connection)
+        DialogService dialogs, ConnectionService connection, OperationService operations)
     {
         _settings = settings;
         _window = window;
         _pickers = pickers;
         _dialogs = dialogs;
+        _operations = operations;
         Connection = connection;
 
         _loading = true;
@@ -30,6 +34,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         DefaultReceiveFolder = s.DefaultReceiveFolder ?? string.Empty;
         LinkTimeoutSeconds = s.LinkTimeoutSeconds;
         _loading = false;
+
+        // The default folder can also be set from the Calculator page's Receive menu.
+        settings.Changed += (_, _) =>
+        {
+            string folder = settings.Current.DefaultReceiveFolder ?? string.Empty;
+            if (folder != DefaultReceiveFolder)
+            {
+                _loading = true;
+                DefaultReceiveFolder = folder;
+                _loading = false;
+            }
+        };
     }
 
     public ConnectionService Connection { get; }
@@ -42,7 +58,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     public partial int BackendIndex { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasDefaultFolder))]
+    [NotifyPropertyChangedFor(nameof(HasDefaultFolder), nameof(DefaultReceiveFolderText))]
     public partial string DefaultReceiveFolder { get; set; }
 
     [ObservableProperty]
@@ -50,11 +66,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool HasDefaultFolder => !string.IsNullOrEmpty(DefaultReceiveFolder);
 
+    public string DefaultReceiveFolderText => HasDefaultFolder ? DefaultReceiveFolder : "Not set";
+
     public bool RestartRequired => (CalculatorBackend)BackendIndex != _settings.StartupBackend;
 
     public string CurrentBackendText => Connection.Service is null
         ? $"Current backend: unavailable — {Connection.ServiceError}"
-        : $"Current backend: {Connection.BackendName}";
+        : Connection.SimulatorReason is { } reason
+            ? $"Current backend: {Connection.BackendName}. {reason}"
+            : $"Current backend: {Connection.BackendName}";
 
     public string VersionText
     {
@@ -127,4 +147,49 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private void ClearFolder() => DefaultReceiveFolder = string.Empty;
+
+    /// <summary>Relaunches CalcLink so the selected backend takes effect.</summary>
+    [RelayCommand]
+    private async Task RestartAsync()
+    {
+        if (_operations.IsBusy)
+        {
+            await _dialogs.ShowMessageAsync("Can't restart yet",
+                "An operation is still running. Wait for it to finish or cancel it, then restart.");
+            return;
+        }
+
+        // Release the calculator cleanly before the process goes away.
+        await Connection.DisconnectAsync();
+
+        string reason;
+        try
+        {
+            // Terminates this process and starts a new instance on success; returns only on failure.
+            reason = AppInstance.Restart(string.Empty).ToString();
+        }
+        catch (Exception ex)
+        {
+            reason = ex.Message;
+        }
+        await _dialogs.ShowMessageAsync("Couldn't restart CalcLink",
+            $"Close CalcLink and start it again to switch to the selected backend. ({reason})");
+    }
+
+    [RelayCommand]
+    private async Task OpenSettingsFolderAsync()
+    {
+        try
+        {
+            Directory.CreateDirectory(SettingsService.AppDataFolder);
+            var args = File.Exists(SettingsService.SettingsPath)
+                ? $"/select,\"{SettingsService.SettingsPath}\""
+                : $"\"{SettingsService.AppDataFolder}\"";
+            using var _ = Process.Start(new ProcessStartInfo("explorer.exe", args) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            await _dialogs.ShowErrorAsync("Could not open the settings folder", ex);
+        }
+    }
 }

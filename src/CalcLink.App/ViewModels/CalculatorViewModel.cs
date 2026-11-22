@@ -83,14 +83,14 @@ public sealed partial class CalculatorViewModel : ObservableObject
     private string _search = string.Empty;
 
     /// <summary>Choices for the Sort box, in <see cref="VariableSortKey"/> order.</summary>
-    public IReadOnlyList<string> SortChoices { get; } = ["Name", "Type", "Size", "RAM / Archive"];
+    public IReadOnlyList<string> SortChoices { get; } = ["Name", "Type", "Size", "Location"];
 
     /// <summary>Choices for the Group box, in <see cref="VariableGrouping"/> order.</summary>
     public IReadOnlyList<string> GroupChoices { get; } = ["Folder", "Type"];
 
     /// <summary>Choices for the Show box: "All" then every <see cref="VariableCategory"/>.</summary>
     public IReadOnlyList<string> ShowChoices { get; } =
-        ["All", .. Enum.GetValues<VariableCategory>().Select(VariableList.CategoryTitle)];
+        ["All items", .. Enum.GetValues<VariableCategory>().Select(VariableList.CategoryTitle)];
 
     public int SortIndex
     {
@@ -153,8 +153,49 @@ public sealed partial class CalculatorViewModel : ObservableObject
         }
     }
 
-    /// <summary>Tooltip / accessible name for the direction toggle.</summary>
     public string SortDirectionText => _sortDescending ? "Descending" : "Ascending";
+
+    // --- View menu (RadioMenuFlyoutItems: IsChecked is OneWay, clicks go through the Set* commands) ---
+
+    public bool IsGroupByFolder => _grouping == VariableGrouping.Folder;
+    public bool IsGroupByType => _grouping == VariableGrouping.Category;
+    public bool IsSortByName => _sortKey == VariableSortKey.Name;
+    public bool IsSortByType => _sortKey == VariableSortKey.Type;
+    public bool IsSortBySize => _sortKey == VariableSortKey.Size;
+    public bool IsSortByLocation => _sortKey == VariableSortKey.Location;
+    public bool IsAscending => !_sortDescending;
+    public bool IsDescending => _sortDescending;
+
+    /// <summary>"Group by Folder" only makes sense on models with folders; elsewhere the same choice reads "None".</summary>
+    public bool ShowFolderGrouping => Connection.Supports(CalcFeatures.Folders);
+    public bool ShowNoGrouping => !ShowFolderGrouping;
+
+    /// <summary>Tooltip / accessible name of the View button: the current grouping and sort.</summary>
+    public string ViewSummary =>
+        $"View: group by {(IsGroupByType ? "type" : ShowFolderGrouping ? "folder" : "none")}, " +
+        $"sort by {SortChoices[(int)_sortKey].ToLowerInvariant()} ({SortDirectionText.ToLowerInvariant()})";
+
+    [RelayCommand]
+    private void SetGrouping(string grouping)
+    {
+        if (Enum.TryParse<VariableGrouping>(grouping, out var g))
+        {
+            GroupIndex = (int)g;
+        }
+    }
+
+    [RelayCommand]
+    private void SetSortKey(string key)
+    {
+        if (Enum.TryParse<VariableSortKey>(key, out var k))
+        {
+            SetSort(k, _sortDescending);
+        }
+    }
+
+    [RelayCommand]
+    private void SetSortDirection(string direction) =>
+        SetSort(_sortKey, string.Equals(direction, "Descending", StringComparison.OrdinalIgnoreCase));
 
     public string SortDirectionGlyph => _sortDescending ? "" : ""; // Down / Up arrows
 
@@ -208,15 +249,14 @@ public sealed partial class CalculatorViewModel : ObservableObject
         var options = new VariableListOptions(_sortKey, _sortDescending, _grouping, _show, _search);
         foreach (var group in VariableList.Build(_all, options))
         {
-            Groups.Add(new VariableGroup(group.Title, group.Items.Select(v => new VariableItem(v))));
+            Groups.Add(new VariableGroup(group.Title, group.Items.Select(v => new VariableItem(v)),
+                isFolder: _grouping == VariableGrouping.Folder));
         }
         IsEmpty = !_stale && _all.Count == 0;
         IsFilteredEmpty = _all.Count > 0 && Groups.Count == 0;
         _selection = [];
         UpdateState();
     }
-
-    public string Title => Connection.IsConnected ? Connection.ModelName : "Calculator";
 
     public string MemoryText
     {
@@ -254,32 +294,65 @@ public sealed partial class CalculatorViewModel : ObservableObject
     private bool HasSelection => _selection.Count > 0;
     private bool SingleSelection => _selection.Count == 1;
 
+    // Commands the connected model can't do at all are hidden (Show*), not disabled: WinUI never shows
+    // tooltips on disabled controls, so a "not supported" tip would never be seen. Can* only reflects
+    // the connection, busy state and the selection.
+
+    public bool ShowRename => Connection.Supports(CalcFeatures.Rename);
+    public bool ShowArchive => Connection.Supports(CalcFeatures.ChangeAttr);
+    public bool ShowNewFolder => Connection.Supports(CalcFeatures.Folders) && Connection.Supports(CalcFeatures.NewFolder);
+
+    // TODO(contract): there is no CalcFeatures flag for remote execution; ModelNames approximates it.
+    public bool ShowRun => Connection.Session is { } s && ModelNames.SupportsRemoteExecute(s.Model);
+
     public bool CanRefresh => Idle && Connection.Supports(CalcFeatures.DirList);
     public bool CanSend => Idle && (Connection.Supports(CalcFeatures.Vars) || Connection.Supports(CalcFeatures.Flash));
     public bool CanReceive => Idle && HasSelection && Connection.Supports(CalcFeatures.Vars);
-    public bool CanReceiveToDefault => CanReceive && !string.IsNullOrEmpty(_settings.Current.DefaultReceiveFolder);
     public bool CanDelete => Idle && HasSelection && Connection.Supports(CalcFeatures.DeleteVar);
-    public bool CanRename => Idle && SingleSelection && Connection.Supports(CalcFeatures.Rename);
-    public bool CanArchive => Idle && HasSelection && Connection.Supports(CalcFeatures.ChangeAttr);
-    public bool CanNewFolder => Idle && Connection.Supports(CalcFeatures.NewFolder);
+    public bool CanRename => Idle && SingleSelection && ShowRename;
 
-    // TODO(contract): there is no CalcFeatures flag for remote execution; enable for one program/app
-    // and let the backend throw FeatureNotSupportedException if it can't.
-    public bool CanRun => Idle && SingleSelection;
+    /// <summary>Archive: something selected is in RAM. (Apps always live in flash; they never move.)</summary>
+    public bool CanArchive => Idle && ShowArchive && _selection.Any(i => !i.Variable.IsApp && !i.IsArchived);
+
+    /// <summary>Move to RAM: something selected is archived.</summary>
+    public bool CanUnarchive => Idle && ShowArchive && _selection.Any(i => !i.Variable.IsApp && i.IsArchived);
+
+    public bool CanNewFolder => Idle && ShowNewFolder;
+
+    /// <summary>Run: exactly one program or app (not an AppVar) is selected.</summary>
+    public bool CanRun => Idle && ShowRun && SingleSelection && IsRunnable(_selection[0].Variable);
+
+    private static bool IsRunnable(CalcVariable v) => v.IsApp || VariableList.CategoryOf(v) == VariableCategory.Programs;
 
     public string RefreshTip => Connection.FeatureTip(CalcFeatures.DirList, "Refresh (F5)");
     public string SendTip => Connection.FeatureTip(Connection.Supports(CalcFeatures.Flash) ? CalcFeatures.Flash : CalcFeatures.Vars, "Send files to the calculator (Ctrl+O)");
-    public string ReceiveTip => Connection.FeatureTip(CalcFeatures.Vars, "Receive selected items to a folder (Ctrl+S)");
-    public string DeleteTip => Connection.FeatureTip(CalcFeatures.DeleteVar, "Delete selected items (Del)");
-    public string RenameTip => Connection.FeatureTip(CalcFeatures.Rename, "Rename (F2)");
-    public string ArchiveTip => Connection.FeatureTip(CalcFeatures.ChangeAttr, "Move to archive");
-    public string UnarchiveTip => Connection.FeatureTip(CalcFeatures.ChangeAttr, "Move to RAM");
-    public string NewFolderTip => Connection.FeatureTip(CalcFeatures.NewFolder, "New folder (Ctrl+Shift+N)");
-    public string RunTip => Connection.IsConnected ? "Run the selected program or app" : "Run (not connected)";
+    public string ReceiveTip => Connection.FeatureTip(CalcFeatures.Vars, "Receive the selected items to a folder you pick (Ctrl+S)");
+    public string DeleteTip => Connection.FeatureTip(CalcFeatures.DeleteVar, "Delete the selected items (Del)");
+    public string RenameTip => "Rename the selected item (F2)";
+    public string ArchiveTip => "Archive: move the selected items to archive (flash) memory";
+    public string UnarchiveTip => "Move to RAM: move the selected items out of the archive";
+    public string NewFolderTip => "New folder (Ctrl+Shift+N)";
+    public string RunTip => "Run the selected program or app on the calculator";
 
-    public string DefaultFolderText => string.IsNullOrEmpty(_settings.Current.DefaultReceiveFolder)
-        ? "Receive to default folder (set one in Settings)"
-        : $"Receive to {_settings.Current.DefaultReceiveFolder}";
+    private string? DefaultFolder => _settings.Current.DefaultReceiveFolder is { Length: > 0 } f ? f : null;
+
+    public bool HasDefaultFolder => DefaultFolder is not null;
+
+    /// <summary>Second action of the Receive split button.</summary>
+    public string ReceiveToDefaultText => DefaultFolder is { } folder
+        ? $"Receive to {ShortFolderName(folder)}"
+        : "Set default folder…";
+
+    public string ReceiveToDefaultTip => DefaultFolder is { } folder
+        ? $"Receive the selected items to the default folder, {folder}"
+        : "Choose a default receive folder and receive the selected items there";
+
+    private static string ShortFolderName(string folder)
+    {
+        string trimmed = folder.TrimEnd('\\', '/');
+        string name = Path.GetFileName(trimmed);
+        return name.Length > 0 ? $"“{name}”" : folder; // a drive root like "D:\" has no file name
+    }
 
     public void SetSelection(IReadOnlyList<VariableItem> selection)
     {
@@ -413,22 +486,38 @@ public sealed partial class CalculatorViewModel : ObservableObject
         }
     }
 
-    [RelayCommand(CanExecute = nameof(CanReceiveToDefault))]
+    /// <summary>Receive to the default folder; when none is set, pick one, save it as the default, then receive.</summary>
+    [RelayCommand(CanExecute = nameof(CanReceive))]
     private async Task ReceiveToDefaultAsync()
     {
-        if (_settings.Current.DefaultReceiveFolder is { Length: > 0 } folder)
+        string? folder = DefaultFolder;
+        if (folder is null)
         {
             try
             {
-                Directory.CreateDirectory(folder);
+                folder = await _pickers.PickFolderAsync();
             }
             catch (Exception ex)
             {
-                await _dialogs.ShowErrorAsync("Default receive folder is not usable", ex);
+                await _dialogs.ShowErrorAsync("Could not open the folder picker", ex);
                 return;
             }
-            await ReceiveToAsync(folder);
+            if (folder is null)
+            {
+                return;
+            }
+            _settings.Update(s => s.DefaultReceiveFolder = folder);
         }
+        try
+        {
+            Directory.CreateDirectory(folder);
+        }
+        catch (Exception ex)
+        {
+            await _dialogs.ShowErrorAsync("Default receive folder is not usable", ex);
+            return;
+        }
+        await ReceiveToAsync(folder);
     }
 
     private async Task ReceiveToAsync(string folder)
@@ -504,7 +593,7 @@ public sealed partial class CalculatorViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanArchive))]
     private Task ArchiveAsync() => SetAttributeAsync(VariableAttribute.Archived, "Archiving");
 
-    [RelayCommand(CanExecute = nameof(CanArchive))]
+    [RelayCommand(CanExecute = nameof(CanUnarchive))]
     private Task UnarchiveAsync() => SetAttributeAsync(VariableAttribute.None, "Moving to RAM");
 
     private async Task SetAttributeAsync(VariableAttribute attribute, string verb)
@@ -513,7 +602,10 @@ public sealed partial class CalculatorViewModel : ObservableObject
         {
             return;
         }
-        var vars = _selection.Select(i => i.Variable).Where(v => v.Attribute != attribute).ToList();
+        // Archive acts on what's in RAM; Move to RAM only on what's archived. (Comparing with
+        // `Attribute != None` would also "move to RAM" locked/protected RAM items, i.e. unlock them.)
+        bool toArchive = attribute == VariableAttribute.Archived;
+        var vars = _selection.Where(i => !i.Variable.IsApp && i.IsArchived != toArchive).Select(i => i.Variable).ToList();
         if (vars.Count == 0)
         {
             return;
@@ -580,7 +672,7 @@ public sealed partial class CalculatorViewModel : ObservableObject
 
         const int Shown = 8;
         var lines = conflicts.Take(Shown)
-            .Select(c => $"• {c.Existing.FullName}  ({c.Existing.TypeName}{(c.Existing.Attribute == VariableAttribute.Archived ? ", archived" : string.Empty)})")
+            .Select(c => $"• {c.Existing.FullName}  ({VariableTypeNames.Of(c.Existing)}{(c.Existing.Attribute == VariableAttribute.Archived ? ", in archive" : string.Empty)})")
             .ToList();
         if (conflicts.Count > Shown)
         {
