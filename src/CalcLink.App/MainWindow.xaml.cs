@@ -33,19 +33,15 @@ public sealed partial class MainWindow : Window
 
     public ShellViewModel ViewModel { get; }
 
+    // Mica (Windows 11) is opaque: it only tints with the wallpaper colour. There is deliberately no
+    // DesktopAcrylic fallback: on Windows 10 that makes the focused window see-through to the desktop.
+    // Without Mica, RootGrid keeps its solid theme background from the XAML.
     private void ApplyBackdrop()
     {
         if (MicaController.IsSupported())
         {
             SystemBackdrop = new MicaBackdrop();
-        }
-        else if (DesktopAcrylicController.IsSupported())
-        {
-            SystemBackdrop = new DesktopAcrylicBackdrop();
-        }
-        else
-        {
-            RootGrid.Background = (Brush)Application.Current.Resources["ApplicationPageBackgroundThemeBrush"];
+            RootGrid.Background = null;
         }
     }
 

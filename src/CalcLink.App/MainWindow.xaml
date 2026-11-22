@@ -9,7 +9,8 @@
     mc:Ignorable="d"
     Title="CalcLink">
 
-    <Grid x:Name="RootGrid">
+    <!-- Solid background by default; cleared in code when Mica is available (Windows 11). -->
+    <Grid x:Name="RootGrid" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
