@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <Company>CalcLink contributors</Company>
+    <Product>CalcLink</Product>
+    <Copyright>Copyright (C) 2026 CalcLink contributors. GPL-2.0-or-later.</Copyright>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

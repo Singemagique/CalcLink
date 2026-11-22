@@ -1,0 +1,277 @@
+# CalcLink CI: .NET tests, native backend (calclink.dll over tilibs), portable app builds.
+#
+# Also used as a reusable workflow by release.yml (workflow_call). The release passes the
+# version from the tag; plain CI derives it from Directory.Build.props.
+#
+# ARM64: everything is cross-compiled on windows-latest (x64), on purpose.
+#  * MSVC on the hosted Windows images includes the x64-hosted ARM64 compiler (vcvars
+#    "amd64_arm64"), vcpkg cross-builds arm64-windows with x64 host tools, and
+#    `dotnet publish -r win-arm64` needs no ARM64 machine.
+#  * The GitHub-hosted `windows-11-arm` runner exists (GA for public repos since 2025), but it is a
+#    partner image and we have not verified that it ships the same VS/vcpkg toolset. Paying the
+#    vcpkg cold-build cost twice on two different images isn't worth it, and native ARM64
+#    hardware can't exercise USB in CI anyway.
+#  * The optional `dotnet-arm64` job runs the Core tests natively on windows-11-arm. Enable it
+#    with the repository variable ENABLE_ARM64_RUNNER=true.
+#
+# Action versions are pinned to major tags. Bump to newer majors (e.g. v5) as they become current.
+
+name: CI
+
+on:
+  push:
+    branches: ['**']        # branches only; tags are handled by release.yml
+    paths-ignore: ['docs/**', '**/*.md']
+  pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      version:
+        description: Version for -p:Version and artifact names (e.g. 1.2.0). Empty = from Directory.Build.props.
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
+  NUGET_XMLDOC_MODE: skip
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: Directory.Build.props
+          sparse-checkout-cone-mode: false
+      - id: v
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:INPUT_VERSION) {
+            $version = $env:INPUT_VERSION
+          } else {
+            [xml] $props = Get-Content -Raw Directory.Build.props
+            $base = $props.Project.PropertyGroup | ForEach-Object { $_.Version } | Where-Object { $_ } | Select-Object -First 1
+            if (-not $base) { throw 'No <Version> in Directory.Build.props' }
+            $version = "$base-ci.$env:GITHUB_RUN_NUMBER"
+          }
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') { throw "Bad version '$version'" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+  dotnet:
+    name: .NET tests (x64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore tests/CalcLink.Core.Tests
+      - name: Build Core + tests
+        run: dotnet build tests/CalcLink.Core.Tests -c Release --no-restore
+      - name: Test
+        run: >
+          dotnet test tests/CalcLink.Core.Tests -c Release --no-build
+          --logger "trx;LogFileName=CalcLink.Core.Tests.trx"
+          --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-x64
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+  dotnet-arm64:
+    name: .NET tests (ARM64, optional)
+    if: vars.ENABLE_ARM64_RUNNER == 'true'
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Test
+        run: >
+          dotnet test tests/CalcLink.Core.Tests -c Release
+          --logger "trx;LogFileName=CalcLink.Core.Tests.trx"
+          --results-directory TestResults
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-arm64
+          path: TestResults/**/*.trx
+          if-no-files-found: warn
+
+  native:
+    name: Native (${{ matrix.rid }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            preset: win-x64-release
+            msvc_arch: amd64          # x64 host, x64 target
+            triplet: x64-windows
+          - rid: win-arm64
+            preset: win-arm64-release
+            msvc_arch: amd64_arm64    # x64 host, ARM64 target (cross tools)
+            triplet: arm64-windows
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive     # harmless if tilibs is vendored instead of a submodule
+
+      - name: MSVC developer environment (${{ matrix.msvc_arch }})
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: ${{ matrix.msvc_arch }}
+
+      - name: Set up vcpkg (runner's preinstalled copy) and binary cache dir
+        shell: pwsh
+        run: |
+          $root = $env:VCPKG_INSTALLATION_ROOT
+          if (-not $root -or -not (Test-Path "$root\vcpkg.exe")) { throw 'VCPKG_INSTALLATION_ROOT not set or vcpkg.exe missing on this runner image.' }
+          # The manifest's builtin-baseline must exist in this clone, which the image refreshes
+          # only weekly. Fetching makes newer baselines resolvable; it doesn't change the checkout.
+          if ((git -C $root rev-parse --is-shallow-repository) -eq 'true') {
+            git -C $root fetch --quiet --unshallow origin
+          } else {
+            git -C $root fetch --quiet origin
+          }
+          $cache = Join-Path $env:RUNNER_TEMP 'vcpkg-bincache'
+          New-Item -ItemType Directory -Force $cache | Out-Null
+          "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
+          "VCPKG_DEFAULT_BINARY_CACHE=$cache" >> $env:GITHUB_ENV
+          # vcpkg's built-in GitHub Actions cache provider (x-gha) was removed; use the 'files'
+          # provider and persist the folder with actions/cache below.
+          "VCPKG_BINARY_SOURCES=clear;files,$cache,readwrite" >> $env:GITHUB_ENV
+          "VCPKG_DISABLE_METRICS=1" >> $env:GITHUB_ENV
+          & "$root\vcpkg.exe" version
+
+      - name: Restore vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-bincache
+          key: vcpkg-bin-${{ matrix.triplet }}-${{ hashFiles('native/**/vcpkg.json', 'native/**/vcpkg-configuration.json', 'native/**/triplets/**') }}
+          restore-keys: |
+            vcpkg-bin-${{ matrix.triplet }}-
+
+      - name: Ensure Ninja
+        shell: pwsh
+        run: |
+          # VsDevCmd normally puts the VS-bundled ninja on PATH; fall back to Chocolatey.
+          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) { choco install ninja -y --no-progress }
+          ninja --version
+          cmake --version
+
+      - name: Configure
+        working-directory: native
+        run: cmake --preset ${{ matrix.preset }}
+
+      - name: Build
+        working-directory: native
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Install
+        working-directory: native
+        run: cmake --install out/build/${{ matrix.preset }} --config Release
+
+      - name: Check install output
+        shell: pwsh
+        working-directory: native/out/install/${{ matrix.preset }}/bin
+        run: |
+          Get-ChildItem | Format-Table Name, Length -AutoSize | Out-String | Write-Host
+          if (-not (Test-Path calclink.dll)) { throw 'calclink.dll missing from the install dir' }
+          # Every non-system import of calclink.dll should be shipped alongside it.
+          $system = '^(api-ms-|ext-ms-|kernel32|user32|advapi32|ole32|oleaut32|shell32|shlwapi|ws2_32|setupapi|cfgmgr32|winusb|bcrypt|crypt32|iphlpapi|dnsapi|secur32|ntdll|ucrtbase|msvcrt|rpcrt4|winmm|version|comdlg32|gdi32|hid|userenv|dbghelp)'
+          $missing = @()
+          foreach ($dll in Get-ChildItem *.dll) {
+            $deps = dumpbin /nologo /dependents $dll.FullName | Where-Object { $_ -match '^\s+\S+\.dll\s*$' } | ForEach-Object { $_.Trim() }
+            foreach ($d in $deps) {
+              if ($d -match $system -or (Test-Path $d)) { continue }
+              if ($d -match '^(vcruntime|msvcp|concrt)') {
+                Write-Host "::warning::$($dll.Name) imports $d (VC++ runtime) but it is not app-local; clean PCs without the VC++ redistributable will fail to load the backend."
+              } else { $missing += "$($dll.Name) -> $d" }
+            }
+          }
+          if ($missing) { throw "Unresolved imports:`n$($missing -join "`n")" }
+
+      - name: Upload native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: native/out/install/${{ matrix.preset }}/bin
+          if-no-files-found: error
+
+  app:
+    name: App (${{ matrix.rid }})
+    needs: [version, dotnet, native]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [win-x64, win-arm64]
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Download native backend
+        uses: actions/download-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: artifacts/native/${{ matrix.rid }}
+
+      - name: Publish, stage and zip
+        id: pkg
+        shell: pwsh
+        run: >
+          ./installer/Build-Portable.ps1 -Rid ${{ matrix.rid }} -Version $env:VERSION
+          -NativeBin artifacts/native/${{ matrix.rid }} -OutDir artifacts
+
+      # Unzipped staged tree: input for code signing + the installer in release.yml.
+      - name: Upload staged app
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.rid }}
+          path: artifacts/stage/${{ matrix.rid }}/CalcLink
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: CalcLink-${{ env.VERSION }}-${{ matrix.rid }}-portable
+          path: artifacts/dist/CalcLink-${{ env.VERSION }}-${{ matrix.rid }}-portable.zip
+          if-no-files-found: error
+          compression-level: 0   # already a zip
+
+      - name: Upload symbols
+        uses: actions/upload-artifact@v4
+        with:
+          name: symbols-${{ matrix.rid }}
+          path: artifacts/symbols/${{ matrix.rid }}
+          if-no-files-found: warn

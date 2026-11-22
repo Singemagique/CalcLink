@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.9.0.schema.json
+# Template: tokens like __VERSION__ are filled by Update-WingetManifests.ps1.
+PackageIdentifier: CalcLink.CalcLink
+PackageVersion: __VERSION__
+PackageLocale: en-US
+Publisher: CalcLink contributors
+PublisherUrl: __REPO_URL__
+PublisherSupportUrl: __REPO_URL__/issues
+PackageName: CalcLink
+PackageUrl: __REPO_URL__
+License: GPL-2.0-or-later
+LicenseUrl: __REPO_URL__/blob/main/LICENSE
+Copyright: Copyright (C) 2026 CalcLink contributors
+ShortDescription: Connect TI graphing calculators to your PC to transfer programs, apps, OS upgrades and backups, and take screenshots.
+Description: |-
+  CalcLink is a modern Windows app for linking Texas Instruments graphing calculators
+  (TI-83 Plus/TI-84 Plus family including the CE, TI-89/92/Voyage 200, TI-Nspire) to a PC
+  over a DirectLink USB cable or a SilverLink cable. It replaces the TiLP front-end and uses
+  the same tilibs protocol libraries. USB access needs a one-time driver setup; see the
+  USB driver guide in the project repository.
+Moniker: calclink
+Tags:
+  - calculator
+  - graphing-calculator
+  - ti-84
+  - ti-84-plus-ce
+  - ti-89
+  - ti-nspire
+  - tilp
+  - tilibs
+ReleaseNotesUrl: __RELEASE_NOTES_URL__
+ManifestType: defaultLocale
+ManifestVersion: 1.9.0

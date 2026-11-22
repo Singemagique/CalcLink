@@ -1,0 +1,29 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "calclink-native",
+  "version-string": "1.0.0",
+  "description": "CalcLink native layer: flat C ABI over tilibs (libticables2, libticalcs2, libtifiles2, libticonv). Dependency list copied from tilibs' own vcpkg.json at 6dba390e, except USB: CalcLink builds tilibs' libusb-1.0 backend on Windows (patches/tilibs-0001-windows-libusb-1.0-backend.patch), so calculators use the WinUSB driver instead of libusb-win32.",
+  "license": "GPL-2.0-or-later",
+  "supports": "windows & (x64 | arm64)",
+  "dependencies": [
+    "zlib",
+    {
+      "name": "pkgconf",
+      "host": true
+    },
+    "libiconv",
+    {
+      "name": "libarchive",
+      "default-features": false
+    },
+    "getopt",
+    "libusb",
+    "glib",
+    {
+      "name": "gettext",
+      "host": true,
+      "features": [ "tools" ]
+    }
+  ],
+  "builtin-baseline": "93ad765c7b66ab9ce97469ec23a90b15c3a14ee5"
+}

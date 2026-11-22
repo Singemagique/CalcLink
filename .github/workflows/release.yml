@@ -1,0 +1,250 @@
+# CalcLink release: on a v* tag, build everything (via ci.yml), optionally Authenticode-sign,
+# build the Inno Setup installers, and publish a GitHub release.
+#
+# Tag format: v<major>.<minor>.<patch>[-prerelease], e.g. v1.2.0 or v1.3.0-beta.1.
+# A tag with a "-suffix" is published as a GitHub pre-release.
+#
+# Code signing (optional) uses Azure Trusted Signing (azure/trusted-signing-action).
+# Signing runs only when ALL of these repository (or environment) secrets are set:
+#   AZURE_TENANT_ID           Entra ID tenant of the app registration
+#   AZURE_CLIENT_ID           app registration (service principal) client ID
+#   AZURE_CLIENT_SECRET       its client secret
+#   TRUSTED_SIGNING_ENDPOINT  account endpoint, e.g. https://eus.codesigning.azure.net/
+#   TRUSTED_SIGNING_ACCOUNT   Trusted Signing account name
+#   TRUSTED_SIGNING_PROFILE   certificate profile name
+# The service principal needs the "Trusted Signing Certificate Profile Signer" role on the
+# account. Without these secrets, the release is built unsigned (SmartScreen will warn).
+# (Microsoft has been renaming Trusted Signing to "Artifact Signing"; if the action moves,
+# update the `uses:` lines. Not verified at the time of writing.)
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Version from tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      prerelease: ${{ steps.v.outputs.prerelease }}
+    steps:
+      - id: v
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME -replace '^v', ''
+          if ($version -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$') {
+            throw "Tag '$env:GITHUB_REF_NAME' is not v<major>.<minor>.<patch>[-prerelease]"
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "prerelease=$(([bool]($version -match '-')).ToString().ToLower())" >> $env:GITHUB_OUTPUT
+
+  build:
+    name: Build
+    needs: version
+    uses: ./.github/workflows/ci.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+
+  package:
+    name: Sign + installer (${{ matrix.rid }})
+    needs: [version, build]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - rid: win-x64
+            arch: x64
+          - rid: win-arm64
+            arch: arm64
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      # Secrets can't be tested in a step-level `if:`, so turn their presence into an env flag.
+      SIGNING_ENABLED: ${{ secrets.AZURE_TENANT_ID != '' && secrets.AZURE_CLIENT_ID != '' && secrets.AZURE_CLIENT_SECRET != '' && secrets.TRUSTED_SIGNING_ENDPOINT != '' && secrets.TRUSTED_SIGNING_ACCOUNT != '' && secrets.TRUSTED_SIGNING_PROFILE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download staged app
+        uses: actions/download-artifact@v4
+        with:
+          name: app-${{ matrix.rid }}
+          path: artifacts/stage/${{ matrix.rid }}/CalcLink
+
+      - name: Download symbols
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: symbols-${{ matrix.rid }}
+          path: artifacts/symbols/${{ matrix.rid }}
+
+      - name: Signing status
+        shell: pwsh
+        run: |
+          if ($env:SIGNING_ENABLED -eq 'true') { Write-Host 'Code signing: enabled' }
+          else { Write-Host '::warning::Code signing secrets not configured; building an UNSIGNED release.' }
+
+      # Sign only binaries that don't already carry a valid signature. The .NET runtime and
+      # Windows App SDK files are Microsoft-signed and must keep their signatures. Unsigned files
+      # are moved to a temp tree (keeping relative paths), signed as a folder, then moved back.
+      - name: Collect unsigned binaries
+        if: env.SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path "artifacts/stage/${{ matrix.rid }}/CalcLink").Path
+          $tosign = Join-Path $env:RUNNER_TEMP 'tosign'
+          New-Item -ItemType Directory -Force $tosign | Out-Null
+          $list = foreach ($f in Get-ChildItem -Recurse -File $stage -Include *.exe, *.dll) {
+            if ((Get-AuthenticodeSignature $f.FullName).Status -eq 'Valid') { continue }
+            $rel = $f.FullName.Substring($stage.Length).TrimStart('\')
+            $dest = Join-Path $tosign $rel
+            New-Item -ItemType Directory -Force (Split-Path -Parent $dest) | Out-Null
+            Move-Item $f.FullName $dest
+            $rel
+          }
+          $list | Set-Content (Join-Path $env:RUNNER_TEMP 'tosign.txt')
+          Write-Host "To sign ($(@($list).Count)):"; $list | ForEach-Object { Write-Host "  $_" }
+
+      - name: Sign app binaries
+        if: env.SIGNING_ENABLED == 'true'
+        uses: azure/trusted-signing-action@v0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          files-folder: ${{ runner.temp }}\tosign
+          files-folder-filter: exe,dll
+          files-folder-recurse: true
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Restore signed binaries
+        if: env.SIGNING_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path "artifacts/stage/${{ matrix.rid }}/CalcLink").Path
+          $tosign = Join-Path $env:RUNNER_TEMP 'tosign'
+          foreach ($rel in Get-Content (Join-Path $env:RUNNER_TEMP 'tosign.txt')) {
+            if (-not $rel) { continue }
+            $src = Join-Path $tosign $rel
+            if ((Get-AuthenticodeSignature $src).Status -ne 'Valid') { throw "Not validly signed after signing: $rel" }
+            Move-Item $src (Join-Path $stage $rel)
+          }
+
+      - name: Re-create portable zip
+        shell: pwsh
+        run: ./installer/Build-Portable.ps1 -Rid ${{ matrix.rid }} -Version $env:VERSION -OutDir artifacts -SkipPublish
+
+      - name: Locate or install Inno Setup 6
+        id: inno
+        shell: pwsh
+        run: |
+          $find = {
+            Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+          }
+          $iscc = & $find
+          if (-not $iscc) {
+            # Not preinstalled on this image: install from Chocolatey (unpinned; the script
+            # itself enforces Inno Setup >= 6.3).
+            choco install innosetup -y --no-progress
+            $iscc = & $find
+          }
+          if (-not $iscc) { throw 'ISCC.exe not found' }
+          "iscc=$($iscc.FullName)" >> $env:GITHUB_OUTPUT
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $stage = (Resolve-Path "artifacts/stage/${{ matrix.rid }}/CalcLink").Path
+          $dist = (Resolve-Path artifacts/dist).Path
+          & '${{ steps.inno.outputs.iscc }}' /Q `
+            "/DArch=${{ matrix.arch }}" "/DAppVersion=$env:VERSION" `
+            "/DSourceDir=$stage" "/DOutputDir=$dist" `
+            "/DRepoUrl=${{ github.server_url }}/${{ github.repository }}" `
+            installer/CalcLink.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+          Get-ChildItem $dist | Format-Table Name, Length -AutoSize | Out-String | Write-Host
+
+      # The uninstaller (unins000.exe) is not signed: that would need Inno's SignTool hook
+      # wired to Trusted Signing's signtool dlib. Only Setup itself is signed here.
+      - name: Sign installer
+        if: env.SIGNING_ENABLED == 'true'
+        uses: azure/trusted-signing-action@v0
+        with:
+          azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          endpoint: ${{ secrets.TRUSTED_SIGNING_ENDPOINT }}
+          trusted-signing-account-name: ${{ secrets.TRUSTED_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ secrets.TRUSTED_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Upload release files
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.rid }}
+          path: |
+            artifacts/dist/CalcLink-${{ env.VERSION }}-${{ matrix.rid }}-setup.exe
+            artifacts/dist/CalcLink-${{ env.VERSION }}-${{ matrix.rid }}-portable.zip
+            artifacts/dist/CalcLink-${{ env.VERSION }}-${{ matrix.rid }}-symbols.zip
+          if-no-files-found: error
+          compression-level: 0
+
+  release:
+    name: GitHub release
+    needs: [version, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+      PRERELEASE: ${{ needs.version.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release files
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum CalcLink-* > SHA256SUMS.txt && cat SHA256SUMS.txt
+
+      - name: winget manifests (for manual submission)
+        shell: pwsh
+        run: >
+          ./installer/winget/Update-WingetManifests.ps1 -Version $env:VERSION -InstallerDir dist
+          -RepoUrl "${{ github.server_url }}/${{ github.repository }}"
+          -BaseUrl "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ github.ref_name }}"
+          -OutDir winget-out
+
+      - name: Upload winget manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: winget-manifests
+          path: winget-out
+
+      - name: Create GitHub release
+        shell: bash
+        run: |
+          flags=(--title "CalcLink $VERSION" --generate-notes --verify-tag)
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${flags[@]}" dist/*

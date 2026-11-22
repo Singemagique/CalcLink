@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+native/build/
+native/out/
+vcpkg_installed/
+AppPackages/
+BundleArtifacts/
+*.msix
+*.appx
+TestResults/
+artifacts/

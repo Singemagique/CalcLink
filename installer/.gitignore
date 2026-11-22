@@ -1,0 +1,2 @@
+# Inno Setup default output folder (CI and Build-Portable.ps1 use ..\artifacts instead).
+Output/

@@ -1,0 +1,69 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- CalcLink desktop UI: unpackaged, self-contained WinUI 3 (Windows App SDK) app.
+       Talks only to the CalcLink.Core abstractions; never to native/ directly. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+    <RootNamespace>CalcLink.App</RootNamespace>
+    <AssemblyName>CalcLink</AssemblyName>
+    <AssemblyTitle>CalcLink</AssemblyTitle>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\CalcLink.ico</ApplicationIcon>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Pick a RID from the platform when building from the CLI with -p:Platform=... -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">
+    <Platform Condition="'$(RuntimeIdentifier)' == 'win-arm64'">ARM64</Platform>
+    <Platform Condition="'$(RuntimeIdentifier)' != 'win-arm64'">x64</Platform>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\CalcLink.ico" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2957" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CalcLink.Core\CalcLink.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Dev convenience: if the native backend has been built locally (native\build.ps1), copy it into
+       native\<rid>\ next to CalcLink.exe so `dotnet run` uses real hardware. Without it the app
+       falls back to the simulator. Override the source with -p:CalcLinkNativeBin=<dir>. -->
+  <PropertyGroup>
+    <CalcLinkNativePreset Condition="'$(RuntimeIdentifier)' == 'win-arm64'">win-arm64-release</CalcLinkNativePreset>
+    <CalcLinkNativePreset Condition="'$(CalcLinkNativePreset)' == '' and '$(Configuration)' == 'Debug' and Exists('$(MSBuildThisFileDirectory)..\..\native\out\install\win-x64-debug\bin\calclink_native.dll')">win-x64-debug</CalcLinkNativePreset>
+    <CalcLinkNativePreset Condition="'$(CalcLinkNativePreset)' == ''">win-x64-release</CalcLinkNativePreset>
+    <CalcLinkNativeBin Condition="'$(CalcLinkNativeBin)' == ''">$(MSBuildThisFileDirectory)..\..\native\out\install\$(CalcLinkNativePreset)\bin</CalcLinkNativeBin>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(CalcLinkNativeBin)\calclink_native.dll')">
+    <None Include="$(CalcLinkNativeBin)\*.dll;$(CalcLinkNativeBin)\*.exe"
+          Link="native\$(RuntimeIdentifier)\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>
