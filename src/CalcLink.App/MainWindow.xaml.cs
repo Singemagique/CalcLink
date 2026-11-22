@@ -28,7 +28,73 @@ public sealed partial class MainWindow : Window
         _navigation.Initialize(ContentFrame);
         _navigation.Navigated += (_, page) => SelectNavItem(page);
         RootGrid.Loaded += OnRootLoaded;
+        AppWindow.Closing += OnAppWindowClosing;
         Closed += OnClosed;
+    }
+
+    private bool _closeApproved;
+    private bool _closeInProgress;
+
+    // Closing the window used to end the process with the link thread mid-transfer. Now: ask if an
+    // operation is running, cancel it and wait for it to stop, close the link, then close for real.
+    private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_closeApproved)
+        {
+            return;
+        }
+        args.Cancel = true; // must be decided synchronously; we close again ourselves below
+        if (_closeInProgress)
+        {
+            return;
+        }
+        _closeInProgress = true;
+        try
+        {
+            var operations = App.GetService<OperationService>();
+            if (operations.IsBusy)
+            {
+                string what = string.IsNullOrWhiteSpace(operations.StatusText) ? "An operation" : operations.StatusText.TrimEnd('…', '.');
+                bool stop = await App.GetService<DialogService>().ConfirmAsync(
+                    "Stop the transfer and quit?",
+                    $"{what} is still running. Quitting now stops it partway: the calculator keeps only what was " +
+                    "fully transferred. If an OS update is interrupted, the calculator will ask for an OS and you'll " +
+                    "need to send it again.",
+                    "Stop and quit", destructive: true);
+                if (!stop)
+                {
+                    return;
+                }
+                operations.CancelCommand.Execute(null);
+                await WaitUntilIdleAsync(operations, TimeSpan.FromSeconds(15));
+            }
+            await Task.WhenAny(App.GetService<ConnectionService>().DisconnectAsync(), Task.Delay(TimeSpan.FromSeconds(5)));
+            _closeApproved = true;
+            Close();
+        }
+        finally
+        {
+            _closeInProgress = false;
+        }
+    }
+
+    private static Task WaitUntilIdleAsync(OperationService operations, TimeSpan timeout)
+    {
+        if (!operations.IsBusy)
+        {
+            return Task.CompletedTask;
+        }
+        var idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnBusyChanged(object? s, EventArgs e)
+        {
+            if (!operations.IsBusy)
+            {
+                operations.BusyChanged -= OnBusyChanged;
+                idle.TrySetResult();
+            }
+        }
+        operations.BusyChanged += OnBusyChanged;
+        return Task.WhenAny(idle.Task, Task.Delay(timeout));
     }
 
     public ShellViewModel ViewModel { get; }
@@ -83,7 +149,7 @@ public sealed partial class MainWindow : Window
 
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        // Close the link politely; don't block shutdown on it.
+        // Normally already closed by OnAppWindowClosing; this covers closes that bypass it.
         var connection = App.GetService<ConnectionService>();
         _ = connection.DisconnectAsync();
     }

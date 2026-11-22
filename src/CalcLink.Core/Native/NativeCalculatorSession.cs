@@ -228,8 +228,29 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
         {
             ClCalcInfo info;
             Check(NativeMethods.cl_get_info(_handle, &info), ct);
-            return ToCalcInfo(&info, Model);
+            CalcInfo result = ToCalcInfo(&info, Model);
+            string id = result.ProductId;
+            if (id.Length == 0 && (Features & CalcFeatures.IdList) != 0)
+            {
+                id = ReadCalcId(ct);
+            }
+            return result with { CalcId = id };
         }, ct);
+    }
+
+    // The ID-list is a separate exchange. If it fails (and the link is still up), the rest of the
+    // info is still good, so report the ID as unknown rather than failing the whole refresh.
+    private string ReadCalcId(CancellationToken ct)
+    {
+        const int Capacity = 64;
+        byte* buffer = stackalloc byte[Capacity];
+        int rc = NativeMethods.cl_get_calc_id(_handle, buffer, Capacity);
+        if (rc == CalcErrorCodes.Ok)
+            return NativeMethods.FromFixedUtf8(buffer, Capacity);
+        if (rc is CalcErrorCodes.Cancelled or CalcErrorCodes.CalcAbort || ct.IsCancellationRequested
+            || CalcErrorCodes.IsDisconnect(rc))
+            Check(rc, ct, "Reading the calculator ID");
+        return string.Empty;
     }
 
     internal static CalcInfo ToCalcInfo(ClCalcInfo* i, CalcModel fallbackModel)
@@ -282,22 +303,45 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
             var result = new CalcVariable[_count];
             for (int i = 0; i < _count; i++)
             {
-                ClVar* v = _list + i;
-                result[i] = new CalcVariable
-                {
-                    Folder = NativeMethods.FromUtf8(v->folder),
-                    Name = NativeMethods.FromUtf8(v->name),
-                    TypeName = NativeMethods.FromUtf8(v->type_name),
-                    FileExtension = NativeMethods.FromUtf8(v->file_ext),
-                    Size = v->size,
-                    RawType = v->type,
-                    Attribute = v->attr <= (byte)VariableAttribute.Archived ? (VariableAttribute)v->attr : VariableAttribute.None,
-                    IsApp = v->is_app != 0,
-                    BackendToken = new NativeVarToken(this, _generation, i),
-                };
+                result[i] = ToCalcVariable(_list + i, new NativeVarToken(this, _generation, i));
             }
             return result;
         }, ct);
+    }
+
+    private static CalcVariable ToCalcVariable(ClVar* v, object? token) => new()
+    {
+        Folder = NativeMethods.FromUtf8(v->folder),
+        Name = NativeMethods.FromUtf8(v->name),
+        TypeName = NativeMethods.FromUtf8(v->type_name),
+        FileExtension = NativeMethods.FromUtf8(v->file_ext),
+        Size = v->size,
+        RawType = v->type,
+        Attribute = v->attr <= (byte)VariableAttribute.Archived ? (VariableAttribute)v->attr : VariableAttribute.None,
+        IsApp = v->is_app != 0,
+        BackendToken = token,
+    };
+
+    // Stateless and link-free (reads the file only), so it runs on the caller's thread.
+    public IReadOnlyList<CalcVariable> GetFileVariables(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ClVar* list = null;
+        int count = 0;
+        try
+        {
+            if (NativeMethods.cl_read_file_vars(path, &list, &count) != CalcErrorCodes.Ok || list == null)
+                return [];
+            var result = new CalcVariable[count];
+            for (int i = 0; i < count; i++)
+                result[i] = ToCalcVariable(list + i, null);
+            return result;
+        }
+        finally
+        {
+            if (list != null)
+                NativeMethods.cl_free_dirlist(list, count);
+        }
     }
 
     public Task SendFilesAsync(IReadOnlyList<string> paths, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
@@ -471,8 +515,9 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
             c.hours = (byte)t.Hour;
             c.minutes = (byte)t.Minute;
             c.seconds = (byte)t.Second;
-            c.time_format = (byte)(clock.TimeFormat == 12 ? 12 : 24);
-            c.date_format = (byte)clock.DateFormat;
+            // 0 = keep the calculator's current setting (anything else unknown is treated as "keep" too).
+            c.time_format = (byte)(clock.TimeFormat is 12 or 24 ? clock.TimeFormat : 0);
+            c.date_format = (byte)(clock.DateFormat is > 0 and <= byte.MaxValue ? clock.DateFormat : 0);
             Check(NativeMethods.cl_set_clock(_handle, &c), ct);
         }, ct);
     }
@@ -480,29 +525,50 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
     public Task BackupAsync(string path, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return Run(CalcFeatures.Backup, () =>
-        {
-            int rc = NativeMethods.cl_backup(_handle, path);
-            if (rc != CalcErrorCodes.Ok)
-            {
-                TryDelete(path);
-                Check(rc, ct);
-            }
-        }, ct, progress);
+        return Run(CalcFeatures.Backup,
+            () => WriteViaTempFile(path, temp => NativeMethods.cl_backup(_handle, temp), rc => Check(rc, ct)),
+            ct, progress);
     }
 
     public Task DumpRomAsync(string path, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
-        return Run(CalcFeatures.RomDump, () =>
+        return Run(CalcFeatures.RomDump,
+            () => WriteViaTempFile(path, temp => NativeMethods.cl_dump_rom(_handle, temp), rc => Check(rc, ct)),
+            ct, progress);
+    }
+
+    /// <summary>
+    /// Runs a native call that writes a file, so that <paramref name="path"/> is only replaced when it
+    /// succeeds. The destination may be an existing file the user chose to overwrite (e.g. last month's
+    /// backup), so a failed or cancelled transfer must never touch it. The temp file sits next to the
+    /// destination (same volume, so the final move is atomic) and keeps its extension, because tilibs
+    /// picks the backup format from the extension.
+    /// </summary>
+    /// <param name="path">Destination file.</param>
+    /// <param name="write">Writes the given temp path; returns a calclink error code.</param>
+    /// <param name="fail">Called with a non-zero code; must throw.</param>
+    internal static void WriteViaTempFile(string path, Func<string, int> write, Action<int> fail)
+    {
+        string full = Path.GetFullPath(path);
+        string directory = Path.GetDirectoryName(full)!;
+        Directory.CreateDirectory(directory);
+        string temp = Path.Combine(directory,
+            $"{Path.GetFileNameWithoutExtension(full)}.{Guid.NewGuid():N}.partial{Path.GetExtension(full)}");
+        try
         {
-            int rc = NativeMethods.cl_dump_rom(_handle, path);
+            int rc = write(temp);
             if (rc != CalcErrorCodes.Ok)
             {
-                TryDelete(path);
-                Check(rc, ct);
+                fail(rc);
+                throw new InvalidOperationException($"Native call failed with code {rc}."); // fail() should have thrown
             }
-        }, ct, progress);
+            File.Move(temp, full, overwrite: true);
+        }
+        finally
+        {
+            TryDelete(temp);
+        }
     }
 
     // ------------------------------------------------------------------ lifetime

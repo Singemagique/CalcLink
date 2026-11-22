@@ -4,6 +4,7 @@ using CalcLink.App.Services;
 using CalcLink.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
 namespace CalcLink.App.ViewModels;
@@ -374,6 +375,12 @@ public sealed partial class CalculatorViewModel : ObservableObject
             return;
         }
 
+        paths = await ResolveConflictsAsync(session, paths);
+        if (paths.Count == 0)
+        {
+            return;
+        }
+
         string what = paths.Count == 1 ? Path.GetFileName(paths[0]) : $"{paths.Count} files";
         var outcome = await _operations.RunAsync($"Sending {what}",
             (progress, ct) => session.SendFilesAsync(paths, progress, ct));
@@ -547,6 +554,64 @@ public sealed partial class CalculatorViewModel : ObservableObject
         }
         var v = _selection[0].Variable;
         await _operations.RunAsync($"Running {v.Name}", (_, ct) => session.ExecuteAsync(v, ct));
+    }
+
+    /// <summary>
+    /// Asks before sending files whose variables already exist on the calculator. Returns the paths to
+    /// send: all of them (Replace), those without conflicts (Skip), or none (Cancel).
+    /// </summary>
+    private async Task<IReadOnlyList<string>> ResolveConflictsAsync(ICalculatorSession session, IReadOnlyList<string> paths)
+    {
+        if (_stale && CanRefresh)
+        {
+            await RefreshAsync(); // compare against the calculator's current contents
+        }
+        if (_stale)
+        {
+            return paths; // couldn't read the list: nothing to compare with
+        }
+
+        var incoming = paths.Select(p => (p, session.GetFileVariables(p))).ToList();
+        IReadOnlyList<VariableConflict> conflicts = VariableConflicts.Find(session.Model, _all, incoming);
+        if (conflicts.Count == 0)
+        {
+            return paths;
+        }
+
+        const int Shown = 8;
+        var lines = conflicts.Take(Shown)
+            .Select(c => $"• {c.Existing.FullName}  ({c.Existing.TypeName}{(c.Existing.Attribute == VariableAttribute.Archived ? ", archived" : string.Empty)})")
+            .ToList();
+        if (conflicts.Count > Shown)
+        {
+            lines.Add($"• …and {conflicts.Count - Shown} more");
+        }
+        bool one = conflicts.Count == 1;
+        var conflictPaths = conflicts.Select(c => c.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // "Skip" only makes sense when some files don't clash.
+        bool canSkip = paths.Any(p => !conflictPaths.Contains(p));
+        var dialog = new ContentDialog
+        {
+            Title = one ? "Replace the variable on the calculator?" : $"Replace {conflicts.Count} variables on the calculator?",
+            Content = new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Text = (one ? "The calculator already has a variable with this name:" : "The calculator already has variables with these names:")
+                       + "\n\n" + string.Join("\n", lines) + "\n\n"
+                       + (one ? "Replace overwrites it with the copy being sent." : "Replace overwrites them with the copies being sent.")
+                       + (canSkip ? " Skip sends only the files that don't clash." : string.Empty),
+            },
+            PrimaryButtonText = "Replace",
+            SecondaryButtonText = canSkip ? "Skip" : string.Empty,
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        return await _dialogs.ShowAsync(dialog) switch
+        {
+            ContentDialogResult.Primary => paths,
+            ContentDialogResult.Secondary => paths.Where(p => !conflictPaths.Contains(p)).ToList(),
+            _ => [],
+        };
     }
 
     private async Task RefreshIfPossibleAsync()

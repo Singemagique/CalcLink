@@ -187,7 +187,7 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
                     _d.FlashUser, _d.FlashUser > flashUsed ? _d.FlashUser - flashUsed : 0,
                     _d.LcdWidth, _d.LcdHeight, _d.BitsPerPixel,
                     BatteryOk: true, ColorScreen: _d.ColorScreen, PythonOnBoard: _d.PythonOnBoard,
-                    ExactMath: _d.ExactMath, ClockSupport: _d.HasClock, RunLevel: 2);
+                    ExactMath: _d.ExactMath, ClockSupport: _d.HasClock, RunLevel: 2) { CalcId = _d.ProductId };
             }
         }, ct);
 
@@ -204,6 +204,29 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
                     .Select(ToModel)
                     .ToArray();
         }, ct);
+
+    public IReadOnlyList<CalcVariable> GetFileVariables(string path)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        if (SimFiles.Classify(path, out _) != TiFileClass.Variable)
+            return [];
+        try
+        {
+            string ext = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
+            SimVar v = ParseVariable(Path.GetFileName(path), ext, File.ReadAllBytes(path));
+            if (v.IsApp)
+                return [];
+            return [new CalcVariable
+            {
+                Folder = v.Folder, Name = v.Name, TypeName = v.TypeName, FileExtension = v.Extension,
+                Size = v.Size, RawType = v.RawType, Attribute = v.Attribute, IsApp = false,
+            }];
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or CalcLinkException)
+        {
+            return [];
+        }
+    }
 
     public Task SendFilesAsync(IReadOnlyList<string> paths, IProgress<TransferProgress>? progress = null, CancellationToken ct = default)
     {
@@ -253,7 +276,7 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
                             _d.Folders.Add(v.Folder);
                         SimVar? existing = _d.Find(v.Folder, v.Name);
                         if (existing is not null)
-                            _d.Vars.Remove(existing); // silent overwrite, like tilibs' MODE_SEND_ONE_VAR
+                            _d.Vars.Remove(existing); // silent overwrite, like a real TI-83 Plus (RAM or archive)
                         _d.Vars.Add(v);
                     }
                 }
@@ -523,8 +546,11 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
             lock (_d.Gate)
             {
                 _d.ClockOffset = clock.Value - DateTime.Now;
-                _d.TimeFormat = clock.TimeFormat == 12 ? 12 : 24;
-                _d.DateFormat = clock.DateFormat;
+                // Like the native backend: 0 (or an unknown value) keeps the current display formats.
+                if (clock.TimeFormat is 12 or 24)
+                    _d.TimeFormat = clock.TimeFormat;
+                if (clock.DateFormat > 0)
+                    _d.DateFormat = clock.DateFormat;
             }
         }, ct);
     }

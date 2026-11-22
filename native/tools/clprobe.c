@@ -7,13 +7,16 @@
  *   --list              probe USB only
  *   --model N           open the first device as tilibs CalcModel N regardless of what the probe
  *                       said (SilverLink). E.g. 4 = TI-83 Plus, 5 = TI-84 Plus, 9 = TI-89 Titanium.
+ *   --file-vars FILE    (alone) list the variables inside a variable/group file; no device needed
+ *   --key CODE          press a key remotely (tilibs key code, e.g. 0x36 = MEM on a TI-83 Plus)
  *   --screen FILE.bmp   capture the calculator screen to a 32-bit BMP
  *   --recv NAME DIR     receive the variable/app called NAME (display name) into DIR
  *   --send FILE         send FILE (variable, group, app, OS, backup, TIGroup) to the calculator
+ *   --attr NAME N       set the attribute of NAME (0 = RAM, 3 = archived; CL_ATTR_*)
  *   --delete NAME       delete the variable called NAME from the calculator
  *
- * Actions run in the order: info + dirlist, --screen, --recv, --send, --delete. Options may be
- * repeated where it makes sense (--recv, --send, --delete). Exit code: 0 if every requested action
+ * Actions run in the order: info + calc id + dirlist, --key, --screen, --recv, --send, --attr, --delete.
+ * Options may be repeated where it makes sense (--key, --recv, --send, --attr, --delete). Exit code: 0 if every requested action
  * succeeded, 1 otherwise.
  *
  * Output is UTF-8 (the console code page is switched to 65001).
@@ -100,13 +103,38 @@ int main(int argc, char** argv)
     const char* recv_dirs[MAX_ACTIONS];
     const char* send_paths[MAX_ACTIONS];
     const char* delete_names[MAX_ACTIONS];
-    int n_recv = 0, n_send = 0, n_delete = 0;
+    uint32_t keys[MAX_ACTIONS];
+    const char* attr_names[MAX_ACTIONS];
+    int32_t attr_values[MAX_ACTIONS];
+    int n_recv = 0, n_send = 0, n_delete = 0, n_keys = 0, n_attr = 0;
     int failures = 0;
     cl_device devs[8];
     int32_t n = 0;
     int ret;
 
     SetConsoleOutputCP(CP_UTF8);
+
+    /* --file-vars FILE: list the variables inside a file (no device needed), then exit. */
+    if (argc == 3 && strcmp(argv[1], "--file-vars") == 0)
+    {
+        cl_var* fv = NULL;
+        int32_t nfv = 0;
+        ret = cl_read_file_vars(argv[2], &fv, &nfv);
+        if (ret != CL_OK)
+        {
+            print_error("cl_read_file_vars", ret);
+            return 1;
+        }
+        printf("%ld variable(s) in %s:\n", (long)nfv, argv[2]);
+        for (int32_t i = 0; i < nfv; i++)
+        {
+            printf("  %-12s %-20s %-8s .%-4s %8lu attr=%u type=0x%02x\n", fv[i].folder, fv[i].name,
+                   fv[i].type_name, fv[i].file_ext, (unsigned long)fv[i].size, (unsigned)fv[i].attr,
+                   (unsigned)fv[i].type);
+        }
+        cl_free_dirlist(fv, nfv);
+        return 0;
+    }
 
     for (int i = 1; i < argc; i++)
     {
@@ -135,11 +163,20 @@ int main(int argc, char** argv)
         {
             delete_names[n_delete++] = argv[++i];
         }
+        else if (strcmp(argv[i], "--attr") == 0 && i + 2 < argc && n_attr < MAX_ACTIONS)
+        {
+            attr_names[n_attr] = argv[++i];
+            attr_values[n_attr++] = (int32_t)atoi(argv[++i]);
+        }
+        else if (strcmp(argv[i], "--key") == 0 && i + 1 < argc && n_keys < MAX_ACTIONS)
+        {
+            keys[n_keys++] = (uint32_t)strtoul(argv[++i], NULL, 0);
+        }
         else
         {
             fprintf(stderr, "unknown or incomplete option: %s\n"
-                            "usage: clprobe [--list] [--model N] [--screen FILE.bmp] [--recv NAME DIR]... "
-                            "[--send FILE]... [--delete NAME]...\n", argv[i]);
+                            "usage: clprobe [--list] [--model N] [--key CODE]... [--screen FILE.bmp] "
+                            "[--recv NAME DIR]... [--send FILE]... [--attr NAME N]... [--delete NAME]...\n", argv[i]);
             return 2;
         }
     }
@@ -220,6 +257,19 @@ int main(int argc, char** argv)
             print_error("cl_get_info", ret);
         }
 
+        {
+            char calc_id[64];
+            ret = cl_get_calc_id(s, calc_id, (int32_t)sizeof(calc_id));
+            if (ret == CL_OK)
+            {
+                printf("calc id: %s\n", calc_id);
+            }
+            else if (ret != CL_E_NOT_SUPPORTED)
+            {
+                print_error("cl_get_calc_id", ret);
+            }
+        }
+
         ret = cl_get_dirlist(s, &vars, &nvars);
         fprintf(stderr, "\n");
         if (ret == CL_OK)
@@ -239,6 +289,21 @@ int main(int argc, char** argv)
             vars = NULL;
             nvars = 0;
             failures++;
+        }
+
+        for (int k = 0; k < n_keys; k++)
+        {
+            ret = cl_send_key(s, keys[k]);
+            if (ret == CL_OK)
+            {
+                printf("key: 0x%lx\n", (unsigned long)keys[k]);
+                Sleep(300);
+            }
+            else
+            {
+                print_error("cl_send_key", ret);
+                failures++;
+            }
         }
 
         if (screen_path != NULL)
@@ -302,6 +367,45 @@ int main(int argc, char** argv)
             {
                 print_error("cl_send_file", ret);
                 failures++;
+            }
+        }
+
+        if (n_attr > 0)
+        {
+            /* Re-read the list so variables sent above can be found. */
+            if (vars != NULL)
+            {
+                cl_free_dirlist(vars, nvars);
+                vars = NULL;
+                nvars = 0;
+            }
+            ret = cl_get_dirlist(s, &vars, &nvars);
+            fprintf(stderr, "\n");
+            if (ret != CL_OK)
+            {
+                print_error("cl_get_dirlist", ret);
+                failures++;
+            }
+            for (int i = 0; i < n_attr && ret == CL_OK; i++)
+            {
+                const cl_var* v = find_var(vars, nvars, attr_names[i]);
+                int aret;
+                if (v == NULL)
+                {
+                    fprintf(stderr, "attr: no variable named %s\n", attr_names[i]);
+                    failures++;
+                    continue;
+                }
+                aret = cl_set_attr(s, v, attr_values[i]);
+                if (aret == CL_OK)
+                {
+                    printf("attr: %s -> %ld ok\n", attr_names[i], (long)attr_values[i]);
+                }
+                else
+                {
+                    print_error("cl_set_attr", aret);
+                    failures++;
+                }
             }
         }
 

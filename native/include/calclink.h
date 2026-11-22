@@ -29,8 +29,9 @@ extern "C" {
 #endif
 #define CL_CALL __cdecl
 
-/* Bump on any breaking change to structs or signatures. C# checks this at load. */
-#define CL_ABI_VERSION 1
+/* Bump on any breaking change to structs or signatures, or when C# starts needing a new export.
+ * C# checks this at load. v2: cl_get_calc_id, cl_read_file_vars; cl_set_clock formats 0 = keep. */
+#define CL_ABI_VERSION 2
 
 /* ---- Shim error codes (negative). Positive codes come from tilibs. ---- */
 #define CL_OK               0
@@ -112,8 +113,8 @@ typedef struct {
 typedef struct {
     uint16_t year;
     uint8_t  month, day, hours, minutes, seconds;
-    uint8_t  time_format;   /* 12 or 24 */
-    uint8_t  date_format;   /* model-specific, see ticalcs_clock_format2date */
+    uint8_t  time_format;   /* 12 or 24. cl_set_clock: 0 = keep the calculator's setting */
+    uint8_t  date_format;   /* 1-based, see ticalcs_clock_format2date. cl_set_clock: 0 = keep */
     uint8_t  reserved[3];
 } cl_clock;
 
@@ -149,11 +150,19 @@ CL_API void     CL_CALL cl_cancel(cl_session* s);    /* thread-safe */
 
 CL_API int CL_CALL cl_is_ready(cl_session* s);
 CL_API int CL_CALL cl_get_info(cl_session* s, cl_calc_info* out);
+/* Calculator ID ("ID-list", OPS_IDLIST) as tilibs returns it: for Z80/68k models the hex digits
+ * the About screen shows, without dashes (e.g. 14 digits for a TI-83 Plus). UTF-8, NUL-terminated.
+ * capacity >= 64 is always enough. */
+CL_API int CL_CALL cl_get_calc_id(cl_session* s, char* out, int32_t capacity);
 CL_API int CL_CALL cl_get_memfree(cl_session* s, uint64_t* ram, uint64_t* flash);
 
 /* ---- Variables ---- */
 CL_API int  CL_CALL cl_get_dirlist(cl_session* s, cl_var** out, int32_t* count);
 CL_API void CL_CALL cl_free_dirlist(cl_var* list, int32_t count);
+/* The variables inside a variable or group file (CL_FILE_VARIABLE; anything else is CL_E_BAD_FILE),
+ * with folder/name/type exactly as cl_get_dirlist reports them, so a caller can spot variables that
+ * already exist before sending. Needs no session. Free with cl_free_dirlist. */
+CL_API int  CL_CALL cl_read_file_vars(const char* path, cl_var** out, int32_t* count);
 /* Sends any file; dispatches on cl_classify_file (var/group, app, OS, backup, tigroup, cert). */
 CL_API int CL_CALL cl_send_file(cl_session* s, const char* path);
 CL_API int CL_CALL cl_recv_var(cl_session* s, const cl_var* v, const char* path);

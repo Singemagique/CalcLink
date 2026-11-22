@@ -12,6 +12,7 @@ public sealed class DeviceItem(DeviceDescriptor device)
     public DeviceDescriptor Device { get; } = device;
     public string Name => string.IsNullOrWhiteSpace(Device.DisplayName) ? ModelNames.Of(Device.Model) : Device.DisplayName;
     public string ModelText => ModelNames.Of(Device.Model);
+    public string ConnectAutomationName => $"Connect to {Name}";
     public string Details
     {
         get

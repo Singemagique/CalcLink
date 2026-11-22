@@ -19,7 +19,6 @@ public sealed partial class ToolsViewModel : ObservableObject
     private readonly DialogService _dialogs;
     private readonly PickerService _pickers;
     private readonly NotificationService _notifications;
-    private CalcClock? _clock;
 
     public ToolsViewModel(ConnectionService connection, OperationService operations, DialogService dialogs,
         PickerService pickers, NotificationService notifications)
@@ -39,7 +38,6 @@ public sealed partial class ToolsViewModel : ObservableObject
         };
         connection.SessionChanged += (_, _) =>
         {
-            _clock = null;
             ClockText = "Not read yet";
             UpdateState();
         };
@@ -116,7 +114,9 @@ public sealed partial class ToolsViewModel : ObservableObject
         if (Connection.Info is { } i)
         {
             Add("Model", string.IsNullOrEmpty(i.ProductName) ? ModelNames.Of(i.Model) : i.ProductName);
-            Add("Product ID", i.ProductId);
+            // Same wording as the calculator's About screen (2nd MEM, About).
+            Add("ID", CalcIdentity.FormatId(string.IsNullOrEmpty(i.CalcId) ? i.ProductId : i.CalcId));
+            Add("Product code", CalcIdentity.ProductCode(i.Model, i.CalcId));
             Add("OS version", i.OsVersion);
             Add("Boot version", i.BootVersion);
             if (i.RamUser > 0 || i.RamFree > 0)
@@ -168,7 +168,6 @@ public sealed partial class ToolsViewModel : ObservableObject
         var (outcome, clock) = await _operations.RunAsync("Reading the clock", (_, ct) => session.GetClockAsync(ct));
         if (outcome == OperationOutcome.Succeeded && clock is not null)
         {
-            _clock = clock;
             ClockText = clock.Value.ToString("F");
             ClockDate = new DateTimeOffset(clock.Value.Date);
             ClockTime = clock.Value.TimeOfDay;
@@ -193,13 +192,11 @@ public sealed partial class ToolsViewModel : ObservableObject
         {
             return;
         }
-        // Keep the calculator's display formats when we know them.
-        // TODO(contract): TimeFormat/DateFormat semantics (12/24 h, date order) aren't documented.
-        var clock = new CalcClock(value, _clock?.TimeFormat ?? 0, _clock?.DateFormat ?? 0);
+        // Only the date and time change: 0 tells the backend to keep the calculator's display formats.
+        var clock = new CalcClock(value, TimeFormat: 0, DateFormat: 0);
         var outcome = await _operations.RunAsync("Setting the clock", (_, ct) => session.SetClockAsync(clock, ct));
         if (outcome == OperationOutcome.Succeeded)
         {
-            _clock = clock;
             ClockText = value.ToString("F");
             _notifications.Post("Clock set", $"The calculator clock is now {value:F}.", InfoBarSeverity.Success);
         }

@@ -615,6 +615,28 @@ void free_var_fields(cl_var& e)
     e = cl_var{};
 }
 
+// Moves a built list into a malloc'd array the caller frees with cl_free_dirlist. On success the
+// vector no longer owns the entries' fields; on failure (throws) it still does.
+void hand_over(std::vector<cl_var>& list, cl_var** out, int32_t* count)
+{
+    if (list.size() > static_cast<size_t>(INT32_MAX))
+    {
+        throw std::bad_alloc();
+    }
+    if (!list.empty())
+    {
+        cl_var* arr = static_cast<cl_var*>(std::malloc(list.size() * sizeof(cl_var)));
+        if (arr == nullptr)
+        {
+            throw std::bad_alloc();
+        }
+        std::memcpy(arr, list.data(), list.size() * sizeof(cl_var));
+        *out = arr;
+        *count = static_cast<int32_t>(list.size());
+        list.clear();
+    }
+}
+
 void add_entry(std::vector<cl_var>& out, CalcModel m, const VarEntry* ve, bool is_app)
 {
     out.push_back(cl_var{});
@@ -1280,6 +1302,39 @@ CL_API int CL_CALL cl_get_info(cl_session* s, cl_calc_info* out)
     });
 }
 
+CL_API int CL_CALL cl_get_calc_id(cl_session* s, char* out, int32_t capacity)
+{
+    return guarded([&]() -> int
+    {
+        if (out == nullptr || capacity <= 0)
+        {
+            return CL_E_INVALID_ARG;
+        }
+        out[0] = '\0';
+        int r = check_session(s);
+        if (r != CL_OK)
+        {
+            return r;
+        }
+        if (!has_features(s, OPS_IDLIST))
+        {
+            return CL_E_NOT_SUPPORTED;
+        }
+
+        OpScope op(s);
+        // Drivers write up to ~24 chars (TI-73 family formats every received byte); oversize the buffer.
+        uint8_t id[256] = {};
+        const int ret = ticalcs_calc_recv_idlist(s->calc, id);
+        if (ret != 0)
+        {
+            return map_ret(s, ret);
+        }
+        id[sizeof(id) - 1] = 0;
+        copy_utf8(out, static_cast<size_t>(capacity), reinterpret_cast<const char*>(id));
+        return CL_OK;
+    });
+}
+
 CL_API int CL_CALL cl_get_memfree(cl_session* s, uint64_t* ram, uint64_t* flash)
 {
     return guarded([&]() -> int
@@ -1392,21 +1447,7 @@ CL_API int CL_CALL cl_get_dirlist(cl_session* s, cl_var** out, int32_t* count)
             {
                 walk_two_level(list, s->model, apps, true);
             }
-            if (list.size() > static_cast<size_t>(INT32_MAX))
-            {
-                throw std::bad_alloc();
-            }
-            if (!list.empty())
-            {
-                cl_var* arr = static_cast<cl_var*>(std::malloc(list.size() * sizeof(cl_var)));
-                if (arr == nullptr)
-                {
-                    throw std::bad_alloc();
-                }
-                std::memcpy(arr, list.data(), list.size() * sizeof(cl_var));
-                *out = arr;
-                *count = static_cast<int32_t>(list.size());
-            }
+            hand_over(list, out, count);
         }
         catch (...)
         {
@@ -1416,6 +1457,67 @@ CL_API int CL_CALL cl_get_dirlist(cl_session* s, cl_var** out, int32_t* count)
             }
             throw;
         }
+        return CL_OK;
+    });
+}
+
+CL_API int CL_CALL cl_read_file_vars(const char* path, cl_var** out, int32_t* count)
+{
+    return guarded([&]() -> int
+    {
+        if (out == nullptr || count == nullptr)
+        {
+            return CL_E_INVALID_ARG;
+        }
+        *out = nullptr;
+        *count = 0;
+        if (path == nullptr || !g_utf8_validate(path, -1, nullptr))
+        {
+            return CL_E_INVALID_ARG;
+        }
+        int r = ensure_init();
+        if (r != CL_OK)
+        {
+            return r;
+        }
+        if (!is_regular_file(path) || classify(path) != CL_FILE_VARIABLE)
+        {
+            return CL_E_BAD_FILE;
+        }
+
+        const CalcModel m = tifiles_file_get_model(path);
+        FileContent* content = tifiles_content_create_regular(m);
+        if (content == nullptr)
+        {
+            return CL_E_NO_MEMORY;
+        }
+        if (tifiles_file_read_regular(path, content) != 0)
+        {
+            // tifiles_file_read_regular() frees the content itself on error.
+            return CL_E_BAD_FILE;
+        }
+        std::vector<cl_var> list;
+        try
+        {
+            for (unsigned int i = 0; i < content->num_entries; i++)
+            {
+                if (content->entries[i] != nullptr)
+                {
+                    add_entry(list, m, content->entries[i], false);
+                }
+            }
+            hand_over(list, out, count);
+        }
+        catch (...)
+        {
+            for (cl_var& e : list)
+            {
+                free_var_fields(e);
+            }
+            tifiles_content_delete_regular(content);
+            throw;
+        }
+        tifiles_content_delete_regular(content);
         return CL_OK;
     });
 }
@@ -1503,6 +1605,9 @@ CL_API int CL_CALL cl_send_file(cl_session* s, const char* path)
                 }
                 TimeoutBump bump(s);
                 // TiLP: the last (here: only) file of a selection is sent with MODE_SEND_LAST_VAR.
+                // A variable that already exists is overwritten without any reply from the calculator
+                // (verified on a TI-83 Plus, OS 1.16, in RAM and archived), so callers must warn first:
+                // see cl_read_file_vars.
                 ret = ticalcs_calc_send_var(s->calc, MODE_SEND_LAST_VAR, content);
                 tifiles_content_delete_regular(content);
             }
@@ -1941,7 +2046,7 @@ CL_API int CL_CALL cl_set_clock(cl_session* s, const cl_clock* in)
     {
         if (in == nullptr || in->month < 1 || in->month > 12 || in->day < 1 || in->day > 31 ||
             in->hours > 23 || in->minutes > 59 || in->seconds > 59 ||
-            (in->time_format != 12 && in->time_format != 24))
+            (in->time_format != 0 && in->time_format != 12 && in->time_format != 24))
         {
             return CL_E_INVALID_ARG;
         }
@@ -1955,13 +2060,17 @@ CL_API int CL_CALL cl_set_clock(cl_session* s, const cl_clock* in)
             return CL_E_NOT_SUPPORTED;
         }
         OpScope op(s);
-        // cl_clock has no 'state' (clock on/off) field: keep whatever the calculator has.
+        // Start from the calculator's current clock so that what cl_clock leaves unspecified keeps
+        // its value: the clock on/off state (no field) and the display formats (0 = keep).
         CalcClock c;
         std::memset(&c, 0, sizeof(c));
         if (ticalcs_calc_get_clock(s->calc, &c) != 0)
         {
+            // Couldn't read it: fall back to TI's factory defaults (clock on, 12-hour, M/D/Y).
             std::memset(&c, 0, sizeof(c));
             c.state = 1;
+            c.time_format = 12;
+            c.date_format = 1;
         }
         c.year        = in->year;
         c.month       = in->month;
@@ -1969,8 +2078,14 @@ CL_API int CL_CALL cl_set_clock(cl_session* s, const cl_clock* in)
         c.hours       = in->hours;
         c.minutes     = in->minutes;
         c.seconds     = in->seconds;
-        c.time_format = in->time_format;
-        c.date_format = in->date_format;
+        if (in->time_format != 0)
+        {
+            c.time_format = in->time_format;
+        }
+        if (in->date_format != 0)
+        {
+            c.date_format = in->date_format;
+        }
         return map_ret(s, ticalcs_calc_set_clock(s->calc, &c));
     });
 }

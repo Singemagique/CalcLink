@@ -46,6 +46,14 @@ public interface ICalculatorSession : IAsyncDisposable
     Task<CalcInfo> GetInfoAsync(CancellationToken ct = default);
     Task<IReadOnlyList<CalcVariable>> GetVariablesAsync(CancellationToken ct = default);
 
+    /// <summary>
+    /// The variables a variable or group file would create on this calculator, named as
+    /// <see cref="GetVariablesAsync"/> names them, so callers can warn before overwriting. Reads only the
+    /// local file (no link traffic). Empty for other file classes (apps, OS, backups...) or unreadable files.
+    /// The returned items have no <see cref="CalcVariable.BackendToken"/>.
+    /// </summary>
+    IReadOnlyList<CalcVariable> GetFileVariables(string path);
+
     /// <summary>Sends files of any class (vars, groups, apps, OS, backups, TIGroups, certs) in order.</summary>
     Task SendFilesAsync(IReadOnlyList<string> paths, IProgress<TransferProgress>? progress = null, CancellationToken ct = default);
 

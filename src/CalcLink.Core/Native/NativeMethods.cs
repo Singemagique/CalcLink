@@ -1,4 +1,4 @@
-// Source-generated P/Invoke bindings for native/include/calclink.h (CL_ABI_VERSION 1),
+// Source-generated P/Invoke bindings for native/include/calclink.h (CL_ABI_VERSION 2),
 // exported by calclink_native.dll.
 // Keep this file in lock-step with the header: every struct here must match the C layout
 // byte-for-byte (see tests/CalcLink.Core.Tests/StructLayoutTests.cs).
@@ -109,7 +109,7 @@ internal enum InfosMask : uint
 internal static unsafe partial class NativeMethods
 {
     public const string LibraryName = "calclink_native"; // calclink_native.dll (CalcLink.dll is the managed app)
-    public const int ExpectedAbiVersion = 1;
+    public const int ExpectedAbiVersion = 2;
 
     // ---- Library ----
     [LibraryImport(LibraryName)]
@@ -189,6 +189,10 @@ internal static unsafe partial class NativeMethods
 
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_get_calc_id(nint s, byte* @out, int capacity);
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int cl_get_memfree(nint s, ulong* ram, ulong* flash);
 
     // ---- Variables ----
@@ -199,6 +203,10 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial void cl_free_dirlist(ClVar* list, int count);
+
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_read_file_vars(string path, ClVar** @out, int* count);
 
     [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

@@ -76,7 +76,15 @@ public sealed record CalcInfo(
     ulong RamUser, ulong RamFree, ulong FlashUser, ulong FlashFree,
     int LcdWidth, int LcdHeight, int BitsPerPixel,
     bool? BatteryOk, bool? ColorScreen, bool? PythonOnBoard, bool? ExactMath, bool? ClockSupport,
-    int RunLevel);
+    int RunLevel)
+{
+    /// <summary>
+    /// Calculator ID as tilibs reports it (hex digits, no dashes; "" if unknown). This is
+    /// <see cref="ProductId"/> when the version reply carries it (USB models, Nspire), otherwise the
+    /// ID-list. Use <see cref="CalcIdentity.FormatId"/> to show it like the About screen.
+    /// </summary>
+    public string CalcId { get; init; } = string.Empty;
+}
 
 /// <summary>A variable, program or app stored on the calculator.</summary>
 public sealed class CalcVariable
@@ -109,10 +117,11 @@ public sealed record ScreenImage(int Width, int Height, byte[] Bgra);
 
 /// <summary>Calculator clock.</summary>
 /// <param name="Value">Local date/time on the calculator (DateTimeKind.Unspecified).</param>
-/// <param name="TimeFormat">12 or 24 (hour display mode).</param>
-/// <param name="DateFormat">Opaque model-specific date display code from tilibs
-/// (see ticalcs_clock_format2date). Round-trip the value read from the calculator unless the
-/// user explicitly changes it.</param>
+/// <param name="TimeFormat">12 or 24 (hour display mode). When setting the clock, 0 keeps the
+/// calculator's current setting.</param>
+/// <param name="DateFormat">Opaque model-specific, 1-based date display code from tilibs
+/// (see ticalcs_clock_format2date). When setting the clock, 0 keeps the calculator's current
+/// setting; otherwise round-trip the value read from the calculator unless the user changes it.</param>
 public sealed record CalcClock(DateTime Value, int TimeFormat, int DateFormat);
 
 /// <summary>Options for <see cref="ICalculatorService.ConnectAsync(DeviceDescriptor, ConnectOptions, CancellationToken)"/>.</summary>

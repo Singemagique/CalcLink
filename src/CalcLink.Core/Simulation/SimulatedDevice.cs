@@ -110,7 +110,7 @@ internal sealed class SimDevice
                 CalcModel.TI84PCE_USB, 0x0451, 0xE008),
             Features = Ti84PceFeatures,
             ProductName = "TI-84 Plus CE",
-            ProductId = "0A-4C8E21F3-B7",
+            ProductId = "134C8E21F3", // USB TI-84 Plus family: product code + 4 bytes (tilibs main_calc_id)
             OsVersion = "5.8.2.0024",
             BootVersion = "5.3.6.0017",
             RamUser = 154_000,
@@ -167,7 +167,7 @@ internal sealed class SimDevice
                 CalcModel.Nspire, 0x0451, 0xE012),
             Features = NspireFeatures,
             ProductName = "TI-Nspire CX II CAS",
-            ProductId = "1C-0A3B5D77-91",
+            ProductId = "1007D6A3B5D7791F2E3D4C5B6A79", // 28 chars, like tilibs reads from the Nspire
             OsVersion = "6.2.0.333",
             BootVersion = "4.5.0.14",
             RamUser = 64ul * 1024 * 1024,
@@ -211,7 +211,7 @@ internal sealed class SimDevice
                 CalcModel.TI89T_USB, 0x0451, 0xE004),
             Features = Ti89TFeatures,
             ProductName = "TI-89 Titanium",
-            ProductId = "03-1F2E3D4C-5B",
+            ProductId = "091F2E3D4C5B6A", // 14 hex digits (5-5-4 on the About screen)
             OsVersion = "3.10",
             BootVersion = "2.00",
             RamUser = 188_416,
