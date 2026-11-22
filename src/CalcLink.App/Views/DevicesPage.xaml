@@ -50,6 +50,27 @@
                      Title="Simulator mode"
                      Message="{x:Bind ViewModel.SimulatorMessage}"
                      IsOpen="{x:Bind ViewModel.IsSimulator, Mode=OneWay}" />
+            <!-- A TI calculator or cable is plugged in with a driver CalcLink can't use (usually TI
+                 Connect's). The scan may still list it (libusb sees it but can't talk to it), so this
+                 sits above the list rather than in the "not found" help. -->
+            <InfoBar Severity="Warning" IsClosable="False" Title="USB driver needed"
+                     IsOpen="{x:Bind ViewModel.NeedsDriver, Mode=OneWay}"
+                     Message="{x:Bind ViewModel.DriverProblemText, Mode=OneWay}">
+                <InfoBar.ActionButton>
+                    <Button Command="{x:Bind ViewModel.SetUpDriverCommand}"
+                            AutomationProperties.Name="Set up USB driver"
+                            ToolTipService.ToolTip="Assigns WinUSB to the device. Windows asks for administrator permission.">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEA18;" FontSize="16" />
+                            <TextBlock Text="Set up USB driver…" />
+                        </StackPanel>
+                    </Button>
+                </InfoBar.ActionButton>
+                <InfoBar.Content>
+                    <ProgressBar IsIndeterminate="True" Margin="0,0,0,12"
+                                 Visibility="{x:Bind ViewModel.IsSettingUpDriver, Mode=OneWay}" />
+                </InfoBar.Content>
+            </InfoBar>
             <InfoBar Severity="Warning" IsClosable="True"
                      Title="Scan failed"
                      IsOpen="{x:Bind ViewModel.HasScanError, Mode=TwoWay}"
@@ -167,7 +188,7 @@
                                 <TextBlock Text="4." Style="{StaticResource CheckNumberStyle}" />
                                 <StackPanel Grid.Column="1" Spacing="2">
                                     <TextBlock TextWrapping="Wrap"
-                                               Text="The WinUSB driver is set up. CalcLink can't use TI's own driver: SilverLink cables and calculators used with TI Connect need WinUSB, installed once with Zadig." />
+                                               Text="The WinUSB driver is set up. CalcLink can't use TI's own driver: SilverLink cables and calculators used with TI Connect need WinUSB, set up once. When CalcLink sees such a device, it shows a Set up USB driver button at the top of this page; you can also do it yourself with Zadig." />
                                     <HyperlinkButton Content="How to install the driver" Padding="0"
                                                      Click="OnDriverHelpClick" />
                                 </StackPanel>

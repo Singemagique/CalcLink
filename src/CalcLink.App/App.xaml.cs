@@ -39,6 +39,7 @@ public partial class App : Application
         services.AddSingleton<ConnectionService>();
         services.AddSingleton<OperationService>();
         services.AddSingleton<PendingFilesService>();
+        services.AddSingleton<DriverSetupService>();
 
         // ViewModels (singletons so page state survives navigation)
         services.AddSingleton<ShellViewModel>();

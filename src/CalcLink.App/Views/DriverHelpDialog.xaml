@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Short, in-app version of docs/DRIVERS.md §3 (setting up WinUSB with Zadig). -->
+<!-- Short, in-app version of docs/DRIVERS.md §3 (CalcLink's own setup) and §4 (Zadig). -->
 <ContentDialog
     x:Class="CalcLink.App.Views.DriverHelpDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -11,7 +11,11 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="12" MaxWidth="480">
             <TextBlock TextWrapping="Wrap"
-                       Text="CalcLink reaches calculators through WinUSB, a driver built into Windows. Windows doesn't choose it by itself, so set it up once for each calculator model (or SilverLink cable) with the free Zadig tool:" />
+                       Text="CalcLink reaches calculators through WinUSB, a driver built into Windows. Windows doesn't choose it by itself, so it has to be set up once for each calculator model (or SilverLink cable)." />
+            <TextBlock TextWrapping="Wrap"
+                       Text="The easy way: plug the calculator in and press Scan. If it uses another driver, CalcLink shows a Set up USB driver button that does it for you (Windows asks for administrator permission)." />
+            <TextBlock TextWrapping="Wrap" Style="{StaticResource BodyStrongTextBlockStyle}"
+                       Text="Or do it yourself with the free Zadig tool:" />
 
             <StackPanel Spacing="6">
                 <TextBlock TextWrapping="Wrap" Text="1.  Connect the calculator (or the SilverLink cable with the calculator plugged in) and switch it on." />

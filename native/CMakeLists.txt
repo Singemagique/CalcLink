@@ -176,9 +176,26 @@ if(CALCLINK_BUILD_CLPROBE)
 endif()
 
 # ---------------------------------------------------------------------------
+# calclink-driver.exe (assigns WinUSB to a TI calculator; the app runs it elevated)
+# ---------------------------------------------------------------------------
+# Self-contained on purpose: no tilibs, static CRT, and system DLLs resolved from System32
+# only (/DEPENDENTLOADFLAG), because it runs as administrator from the app folder, which a
+# per-user install leaves writable by the user.
+add_executable(calclink_driver tools/calclink-driver.c)
+set_target_properties(calclink_driver PROPERTIES
+    OUTPUT_NAME calclink-driver
+    C_STANDARD 17
+    C_STANDARD_REQUIRED ON
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+target_compile_options(calclink_driver PRIVATE /W4 /utf-8 /sdl)
+target_compile_definitions(calclink_driver PRIVATE _CRT_SECURE_NO_WARNINGS _WIN32_WINNT=0x0A00)
+target_link_options(calclink_driver PRIVATE /DEPENDENTLOADFLAG:0x800)
+
+# ---------------------------------------------------------------------------
 # Install: everything that has to ship goes into <prefix>/bin
 # ---------------------------------------------------------------------------
-set(_install_targets calclink)
+set(_install_targets calclink calclink_driver)
 if(CALCLINK_BUILD_CLPROBE)
     list(APPEND _install_targets clprobe)
 endif()

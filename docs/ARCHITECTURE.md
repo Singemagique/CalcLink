@@ -158,8 +158,13 @@ Derived from AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L are 
 * **Still to do.**
   * Offer the patch upstream to tilibs.
   * Test DirectLink models (TI-84 Plus family, TI-89 Titanium, Nspire) and an ARM64 PC.
-  * An optional "Set up USB driver" flow with explicit consent (libwdi, the library behind Zadig).
-  * Detect "a TI driver owns this device" and explain it, instead of reporting a generic open failure.
+* **Done: "Set up USB driver".** `native/tools/calclink-driver.c` is a small self-contained helper. `list` reports each connected TI device's driver without elevation. `install` (run elevated, only on the user's click) does libwdi's WinUSB steps for one TI hardware ID:
+  * writes an INF that includes `winusb.inf`, and a catalog;
+  * signs the catalog with a one-off self-signed certificate whose private key is deleted after signing;
+  * trusts that certificate machine-wide;
+  * forces the package onto the device.
+
+  After every scan, the app (`DriverSetupService`, Devices page) checks whether any TI device has no usable driver, and offers the button if so. The check also runs when the scan listed the device: libusb enumerates a SilverLink on TI's driver but can't open it. See `docs/DRIVERS.md` §3.
 
 ### 7.2 Features
 

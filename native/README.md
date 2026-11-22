@@ -59,6 +59,7 @@ After `cmake --install`, `out/install/<preset>/bin` holds everything the app nee
 packaging copies it to `native\<rid>\` next to the app:
 
 * `calclink_native.dll`, plus `clprobe.exe` (a test tool; it does not need to ship to users)
+* `calclink-driver.exe`: the "Set up USB driver" helper (`tools/calclink-driver.c`). The app runs it to list TI devices' drivers, and elevated to assign WinUSB. It doesn't use tilibs, links the CRT statically and loads system DLLs from System32 only, because it runs as administrator.
 * vcpkg runtime DLLs, collected with `install(RUNTIME_DEPENDENCIES)` (dumpbin-based):
   GLib (`glib-2.0-0.dll`), `intl-8.dll`, `iconv-2.dll`, `pcre2-8.dll`, `zlib1.dll`,
   `archive.dll`, `libusb-1.0.dll` (exact names depend on the vcpkg port versions)
@@ -71,7 +72,7 @@ packaging copies it to `native\<rid>\` next to the app:
 * **USB driver:** tilibs is built with its **libusb-1.0** backend on Windows
   (`patches/tilibs-0001-windows-libusb-1.0-backend.patch`, applied automatically to a fetched
   tilibs; a local `TILIBS_SOURCE_DIR` checkout must have it applied, and configure says so if not).
-  The calculator must use the **WinUSB** driver (assigned once with Zadig; see `docs/DRIVERS.md`).
+  The calculator must use the **WinUSB** driver, assigned once with the app's "Set up USB driver" button or with Zadig (see `docs/DRIVERS.md`).
   libusbK and libusb-win32's driver also work through libusb-1.0. Calculators bound to
   TI Connect's own driver are not seen.
 * **Non-ASCII paths:** libtifiles opens variables, apps, OS images, backups and TIGroups with

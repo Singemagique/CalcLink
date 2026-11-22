@@ -16,7 +16,9 @@
 ;
 ; Policy (see AUDIT.md 2.3): per-user by default, no shared DLLs, nothing in system32,
 ; no environment variables, no drivers. The USB driver is a separate, explicit user step
-; (docs/DRIVERS.md); this installer only offers to open that guide.
+; (docs/DRIVERS.md); this installer only offers to open that guide. The app ships
+; native\<rid>\calclink-driver.exe, which assigns WinUSB only when the user clicks "Set up USB
+; driver" in the app and approves Windows' administrator prompt.
 
 #if VER < EncodeVer(6, 3, 0)
   #error Inno Setup 6.3 or newer is required (for the x64compatible architecture identifier).

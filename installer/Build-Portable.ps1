@@ -8,7 +8,7 @@
     The staged layout is:
         <OutDir>\stage\<Rid>\CalcLink\
             CalcLink.exe, CalcLink.dll, ... (dotnet publish output, self-contained)
-            native\<Rid>\calclink_native.dll, tilibs/glib/libusb DLLs, clprobe.exe
+            native\<Rid>\calclink_native.dll, tilibs/glib/libusb DLLs, clprobe.exe, calclink-driver.exe
             LICENSE.txt
             docs\DRIVERS.md
     and the outputs are:

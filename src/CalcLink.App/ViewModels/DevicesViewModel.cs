@@ -48,20 +48,27 @@ public sealed partial class DevicesViewModel : ObservableObject
 {
     private readonly OperationService _operations;
     private readonly NavigationService _navigation;
+    private readonly DriverSetupService _drivers;
+    private readonly DialogService _dialogs;
+    private readonly NotificationService _notifications;
     private bool _autoScanned;
 
     public DevicesViewModel(ConnectionService connection, OperationService operations, NavigationService navigation,
-        PendingFilesService pending)
+        PendingFilesService pending, DriverSetupService drivers, DialogService dialogs, NotificationService notifications)
     {
         Connection = connection;
         Pending = pending;
         _operations = operations;
         _navigation = navigation;
+        _drivers = drivers;
+        _dialogs = dialogs;
+        _notifications = notifications;
         operations.BusyChanged += (_, _) =>
         {
             ScanCommand.NotifyCanExecuteChanged();
             ConnectCommand.NotifyCanExecuteChanged();
             DisconnectCommand.NotifyCanExecuteChanged();
+            SetUpDriverCommand.NotifyCanExecuteChanged();
         };
         connection.SessionChanged += (_, _) =>
         {
@@ -157,6 +164,7 @@ public sealed partial class DevicesViewModel : ObservableObject
                 HasScanError = true;
                 HasScanned = true;
                 EmptyText = IsEmpty ? "The scan didn't complete." : string.Empty;
+                await CheckDriversAsync(); // a wrong driver can also make the scan fail
             }
             if (outcome != OperationOutcome.Succeeded || devices is null)
             {
@@ -173,6 +181,7 @@ public sealed partial class DevicesViewModel : ObservableObject
             IsEmpty = Devices.Count == 0;
             HasScanned = true;
             EmptyText = IsEmpty ? "No calculators found." : string.Empty;
+            await CheckDriversAsync();
 
             // Launched with files ("Open with CalcLink"): connect straight away when the choice is obvious;
             // otherwise the banner asks the user to pick a calculator.
@@ -184,6 +193,108 @@ public sealed partial class DevicesViewModel : ObservableObject
         finally
         {
             IsScanning = false;
+        }
+    }
+
+    // ---- USB driver setup ------------------------------------------------------------------
+
+    /// <summary>The connected TI device that has no driver CalcLink can use, if any.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsDriver), nameof(DriverProblemText))]
+    [NotifyCanExecuteChangedFor(nameof(SetUpDriverCommand))]
+    public partial UsbDriverDevice? DeviceWithoutDriver { get; private set; }
+
+    public bool NeedsDriver => DeviceWithoutDriver is not null;
+
+    public string DriverProblemText => DeviceWithoutDriver is { } d
+        ? $"{d.Description} is plugged in, but it uses {d.DriverText}. CalcLink needs Windows' WinUSB driver for it."
+        : string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SetUpDriverCommand))]
+    public partial bool IsSettingUpDriver { get; private set; }
+
+    /// <summary>
+    /// After every scan on real hardware, asks the helper which driver each connected TI device uses, so
+    /// the page can offer to set up WinUSB. Runs even when the scan listed devices: libusb still sees a
+    /// SilverLink on TI's driver (it shows up as "Unknown calculator") but can't talk to it.
+    /// </summary>
+    private async Task CheckDriversAsync()
+    {
+        if (IsSimulator || !_drivers.IsAvailable)
+        {
+            DeviceWithoutDriver = null;
+            return;
+        }
+        try
+        {
+            var devices = await _drivers.ListAsync();
+            DeviceWithoutDriver = devices.FirstOrDefault(d => !d.HasUsableDriver);
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or InvalidOperationException)
+        {
+            DeviceWithoutDriver = null; // the checklist still explains the manual way
+        }
+    }
+
+    private bool CanSetUpDriver() => DeviceWithoutDriver is not null && !IsSettingUpDriver && !_operations.IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanSetUpDriver))]
+    private async Task SetUpDriverAsync()
+    {
+        if (DeviceWithoutDriver is not { } device)
+        {
+            return;
+        }
+        bool go = await _dialogs.ConfirmAsync(
+            "Set up the USB driver?",
+            $"CalcLink will assign Windows' built-in WinUSB driver to {device.Description}.\n\n" +
+            "Windows will ask for administrator permission next, because installing a driver changes Windows for " +
+            "every user of this PC.\n\n" +
+            "So that Windows accepts the driver, CalcLink creates a certificate on this PC, signs the driver with it " +
+            "and adds it to Windows' trusted certificates. Its private key is deleted straight away, so the " +
+            "certificate can't be used to sign anything else.\n\n" +
+            "While the device uses WinUSB, TI Connect can't use it. You can switch it back in Device Manager.",
+            "Set up driver");
+        if (!go)
+        {
+            return;
+        }
+
+        IsSettingUpDriver = true;
+        try
+        {
+            var result = await _drivers.InstallAsync(device.HardwareId);
+            if (result.Cancelled)
+            {
+                return;
+            }
+            if (!result.Succeeded)
+            {
+                string details = string.IsNullOrWhiteSpace(result.Log)
+                    ? string.Empty
+                    : $"\n\nDetails (also saved in {DriverSetupService.LogPath}):\n{result.Log}";
+                await _dialogs.ShowMessageAsync("The driver wasn't installed", result.Message + details);
+                return;
+            }
+            if (result.RestartNeeded)
+            {
+                await _dialogs.ShowMessageAsync("Restart Windows to finish", result.Message);
+                return;
+            }
+            _notifications.Post("USB driver set up", $"{device.Description} now uses WinUSB.",
+                Microsoft.UI.Xaml.Controls.InfoBarSeverity.Success);
+            DeviceWithoutDriver = null;
+            // Windows needs a moment to start the device on its new driver.
+            await Task.Delay(TimeSpan.FromSeconds(2));
+            if (ScanCommand.CanExecute(null))
+            {
+                await ScanCommand.ExecuteAsync(null);
+            }
+        }
+        finally
+        {
+            IsSettingUpDriver = false;
         }
     }
 
