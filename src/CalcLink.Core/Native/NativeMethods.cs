@@ -109,7 +109,7 @@ internal enum InfosMask : uint
 internal static unsafe partial class NativeMethods
 {
     public const string LibraryName = "calclink_native"; // calclink_native.dll (CalcLink.dll is the managed app)
-    public const int ExpectedAbiVersion = 2;
+    public const int ExpectedAbiVersion = 3;
 
     // ---- Library ----
     [LibraryImport(LibraryName)]
@@ -178,6 +178,10 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial void cl_cancel(nint s);
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void cl_reset_cancel(nint s);
 
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]

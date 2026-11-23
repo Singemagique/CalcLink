@@ -30,8 +30,9 @@ extern "C" {
 #define CL_CALL __cdecl
 
 /* Bump on any breaking change to structs or signatures, or when C# starts needing a new export.
- * C# checks this at load. v2: cl_get_calc_id, cl_read_file_vars; cl_set_clock formats 0 = keep. */
-#define CL_ABI_VERSION 2
+ * C# checks this at load. v2: cl_get_calc_id, cl_read_file_vars; cl_set_clock formats 0 = keep.
+ * v3: cl_reset_cancel; calls no longer clear the cancel flag themselves. */
+#define CL_ABI_VERSION 3
 
 /* ---- Shim error codes (negative). Positive codes come from tilibs. ---- */
 #define CL_OK               0
@@ -146,7 +147,13 @@ CL_API void     CL_CALL cl_close(cl_session* s);
 CL_API uint32_t CL_CALL cl_features(cl_session* s);  /* tilibs CalcFeatures bits (OPS_*, FTS_*) */
 CL_API int32_t  CL_CALL cl_calc_model(cl_session* s);
 CL_API void     CL_CALL cl_set_progress(cl_session* s, cl_progress_fn fn, void* user);
+/* Cancellation. cl_cancel sets the session's cancel flag; the running call (and any later call)
+ * then stops with CL_E_CANCELLED at its next check. The flag stays set until cl_reset_cancel, so a
+ * cancel that arrives between two calls of one operation is not lost. The caller owns the flag:
+ * call cl_reset_cancel once at the start of each operation (a sequence of calls), before it can be
+ * cancelled, never between its calls. */
 CL_API void     CL_CALL cl_cancel(cl_session* s);    /* thread-safe */
+CL_API void     CL_CALL cl_reset_cancel(cl_session* s);
 
 CL_API int CL_CALL cl_is_ready(cl_session* s);
 CL_API int CL_CALL cl_get_info(cl_session* s, cl_calc_info* out);

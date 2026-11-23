@@ -392,7 +392,8 @@ public:
     explicit OpScope(cl_session* s) : prev_(t_current)
     {
         t_current = s;
-        cancel_flag(s).store(0);
+        // The cancel flag is NOT cleared here: the caller clears it once per operation with
+        // cl_reset_cancel, so a cancel that lands between two calls of one operation isn't lost.
         reset_counters(s->updat);
         s->updat.text[0] = '\0';
     }
@@ -1182,6 +1183,15 @@ CL_API void CL_CALL cl_cancel(cl_session* s)
         return;
     }
     cancel_flag(s).store(1);
+}
+
+CL_API void CL_CALL cl_reset_cancel(cl_session* s)
+{
+    if (s == nullptr)
+    {
+        return;
+    }
+    cancel_flag(s).store(0);
 }
 
 CL_API int CL_CALL cl_is_ready(cl_session* s)

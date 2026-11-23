@@ -118,9 +118,32 @@ public sealed partial class ConnectionService(WindowService window, SettingsServ
         var options = new ConnectOptions(TimeoutSeconds: settings.Current.LinkTimeoutSeconds);
         var session = await Service.ConnectAsync(device, options, ct);
         session.Disconnected += OnSessionDisconnected;
-        Info = null;
-        Session = session;
-        await RefreshInfoAsync(ct);
+        try
+        {
+            Info = null;
+            Session = session;
+            await RefreshInfoAsync(ct);
+        }
+        catch
+        {
+            // Cancelled (or failed) after the link opened, while reading the calculator's info: the UI
+            // reports the connect as cancelled, so don't keep a half-set-up session holding the cable (B7).
+            session.Disconnected -= OnSessionDisconnected;
+            if (ReferenceEquals(Session, session))
+            {
+                Session = null;
+                Info = null;
+            }
+            try
+            {
+                await session.DisposeAsync();
+            }
+            catch (Exception)
+            {
+                // The link may already be gone.
+            }
+            throw;
+        }
         SessionChanged?.Invoke(this, EventArgs.Empty);
     }
 

@@ -44,6 +44,8 @@ set(ENABLE_LOGGING ${CALCLINK_TILIBS_CABLE_LOGGING} CACHE BOOL "libticables cabl
 # tilibs' default libusb-win32 on Windows. Needs patches/tilibs-0001-windows-libusb-1.0-backend.patch.
 set(TICABLES_WIN32_LIBUSB1 ON CACHE BOOL "tilibs: libusb-1.0 backend on Windows" FORCE)
 set(_tilibs_patch "${CMAKE_CURRENT_SOURCE_DIR}/patches/tilibs-0001-windows-libusb-1.0-backend.patch")
+# UTF-8 (g_fopen) for the files libticalcs writes itself: ROM dumps and certificate receipts.
+set(_tilibs_patch2 "${CMAKE_CURRENT_SOURCE_DIR}/patches/tilibs-0002-utf8-file-paths.patch")
 
 if(NOT CALCLINK_TILIBS_NLS)
     # tilibs enables NLS when FindGettext finds msgmerge+msgfmt. Pre-seeding the cache
@@ -76,6 +78,11 @@ if(TILIBS_SOURCE_DIR)
         message(FATAL_ERROR "The tilibs checkout at ${TILIBS_DIR} lacks the libusb-1.0 Windows patch. "
             "Apply it with:\n  git -C \"${TILIBS_DIR}\" apply \"${_tilibs_patch}\"")
     endif()
+    file(READ "${TILIBS_DIR}/libticalcs/trunk/src/romdump.cc" _romdump_cc)
+    if(NOT _romdump_cc MATCHES "g_fopen\\(filename")
+        message(FATAL_ERROR "The tilibs checkout at ${TILIBS_DIR} lacks the UTF-8 file path patch. "
+            "Apply it with:\n  git -C \"${TILIBS_DIR}\" apply \"${_tilibs_patch2}\"")
+    endif()
 else()
     include(FetchContent)
     # Full-signature FetchContent_Populate (not deprecated by CMP0169): we need
@@ -86,7 +93,7 @@ else()
         GIT_REPOSITORY "${TILIBS_GIT_REPOSITORY}"
         GIT_TAG        "${TILIBS_GIT_TAG}"
         GIT_SUBMODULES ""
-        PATCH_COMMAND  git apply --ignore-whitespace "${_tilibs_patch}"
+        PATCH_COMMAND  git apply --ignore-whitespace "${_tilibs_patch}" "${_tilibs_patch2}"
         SOURCE_DIR     "${CMAKE_BINARY_DIR}/_deps/tilibs-src"
         BINARY_DIR     "${CMAKE_BINARY_DIR}/_deps/tilibs-build"
         SUBBUILD_DIR   "${CMAKE_BINARY_DIR}/_deps/tilibs-subbuild")

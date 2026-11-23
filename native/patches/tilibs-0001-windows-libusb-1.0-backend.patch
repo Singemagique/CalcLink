@@ -1,1 +1,95 @@
-diff --git a/libticables/trunk/CMakeLists.txt b/libticables/trunk/CMakeLists.txtindex a957745..0531005 100644--- a/libticables/trunk/CMakeLists.txt+++ b/libticables/trunk/CMakeLists.txt@@ -61,7 +61,11 @@ if(LINUX) endif()  # external deps lookup-if(WIN32)+# On Windows, USB goes through libusb-win32 (libusb0.sys driver) by default. With+# TICABLES_WIN32_LIBUSB1=ON it uses the libusb-1.0 backend instead (as on Linux/macOS),+# which works with the WinUSB driver (inbox, Microsoft-signed, ARM64-capable).+option(TICABLES_WIN32_LIBUSB1 "Windows: use libusb-1.0 (WinUSB) instead of libusb-win32" OFF)+if(WIN32 AND NOT TICABLES_WIN32_LIBUSB1)     find_library(LIBUSB0 NAMES libusb0.lib usb0 REQUIRED)     target_link_libraries(ticables2 PRIVATE ${LIBUSB0}) else()@@ -74,6 +78,8 @@ target_link_libraries(ticables2 PRIVATE PkgConfig::glib) if(NOT WIN32)     # additional internal defines     target_compile_definitions(ticables2 PUBLIC HAVE_LIBUSB_1_0=1 HAVE_LIBUSB10_STRERROR=1 HAVE_TERMIOS_H=1)+elseif(TICABLES_WIN32_LIBUSB1)+    target_compile_definitions(ticables2 PUBLIC HAVE_LIBUSB_1_0=1 HAVE_LIBUSB10_STRERROR=1) endif()  set_target_properties(ticables2 PROPERTIES VERSION 8.0.0 SOVERSION 8)diff --git a/libticables/trunk/src/link_usb.cc b/libticables/trunk/src/link_usb.ccindex decb2a2..f5f762e 100644--- a/libticables/trunk/src/link_usb.cc+++ b/libticables/trunk/src/link_usb.cc@@ -27,7 +27,7 @@  #ifndef NO_CABLE_SLV -#if defined(__WIN32__)+#if defined(__WIN32__) && !defined(HAVE_LIBUSB_1_0) # define HAVE_LIBUSB #endif diff --git a/libticables/trunk/src/ticables.cc b/libticables/trunk/src/ticables.ccindex a6da9fa..f61bafe 100644--- a/libticables/trunk/src/ticables.cc+++ b/libticables/trunk/src/ticables.cc@@ -35,7 +35,9 @@ #include <sys/utsname.h> #endif -#ifdef _MSC_VER+#if defined(HAVE_LIBUSB_1_0)+# include <libusb.h>+#elif defined(_MSC_VER) # include "./win32/usb.h" #elif defined(HAVE_LIBUSB) # include <usb.h>diff --git a/libticables/trunk/src/win32/detect.cc b/libticables/trunk/src/win32/detect.ccindex 64f5671..4d85def 100644--- a/libticables/trunk/src/win32/detect.cc+++ b/libticables/trunk/src/win32/detect.cc@@ -89,6 +89,16 @@ int win32_check_rwp(void) #endif } +#ifdef HAVE_LIBUSB_1_0+// libusb-1.0 backend (WinUSB / libusbK / libusb0.sys drivers): USB is usable if+// libusb_init() succeeded in ticables_library_init().+extern int libusb_working;++int win32_check_libusb(void)+{+	return (libusb_working == 0) ? 0 : ERR_LIBUSBWIN32_NOT_PRESENT;+}+#else int win32_check_libusb(void) { 	if(usb_get_version() != NULL)@@ -96,3 +106,4 @@ int win32_check_libusb(void) 	else 		return ERR_LIBUSBWIN32_NOT_PRESENT; }+#endifdiff --git a/libticalcs/trunk/CMakeLists.txt b/libticalcs/trunk/CMakeLists.txtindex 1a9bff6..c16d28d 100644--- a/libticalcs/trunk/CMakeLists.txt+++ b/libticalcs/trunk/CMakeLists.txt@@ -69,8 +69,8 @@ if(LINUX)     target_link_libraries(ticalcs2 PRIVATE Threads::Threads) endif() -# external deps lookup-if(WIN32)+# external deps lookup (TICABLES_WIN32_LIBUSB1: see libticables/trunk/CMakeLists.txt)+if(WIN32 AND NOT TICABLES_WIN32_LIBUSB1)     find_library(LIBUSB0 NAMES libusb0.lib usb0 REQUIRED)     target_link_libraries(ticalcs2 PRIVATE ${LIBUSB0}) else()
+diff --git a/libticables/trunk/CMakeLists.txt b/libticables/trunk/CMakeLists.txt
+index a957745..0531005 100644
+--- a/libticables/trunk/CMakeLists.txt
++++ b/libticables/trunk/CMakeLists.txt
+@@ -61,7 +61,11 @@ if(LINUX)
+ endif()
+ 
+ # external deps lookup
+-if(WIN32)
++# On Windows, USB goes through libusb-win32 (libusb0.sys driver) by default. With
++# TICABLES_WIN32_LIBUSB1=ON it uses the libusb-1.0 backend instead (as on Linux/macOS),
++# which works with the WinUSB driver (inbox, Microsoft-signed, ARM64-capable).
++option(TICABLES_WIN32_LIBUSB1 "Windows: use libusb-1.0 (WinUSB) instead of libusb-win32" OFF)
++if(WIN32 AND NOT TICABLES_WIN32_LIBUSB1)
+     find_library(LIBUSB0 NAMES libusb0.lib usb0 REQUIRED)
+     target_link_libraries(ticables2 PRIVATE ${LIBUSB0})
+ else()
+@@ -74,6 +78,8 @@ target_link_libraries(ticables2 PRIVATE PkgConfig::glib)
+ if(NOT WIN32)
+     # additional internal defines
+     target_compile_definitions(ticables2 PUBLIC HAVE_LIBUSB_1_0=1 HAVE_LIBUSB10_STRERROR=1 HAVE_TERMIOS_H=1)
++elseif(TICABLES_WIN32_LIBUSB1)
++    target_compile_definitions(ticables2 PUBLIC HAVE_LIBUSB_1_0=1 HAVE_LIBUSB10_STRERROR=1)
+ endif()
+ 
+ set_target_properties(ticables2 PROPERTIES VERSION 8.0.0 SOVERSION 8)
+diff --git a/libticables/trunk/src/link_usb.cc b/libticables/trunk/src/link_usb.cc
+index decb2a2..f5f762e 100644
+--- a/libticables/trunk/src/link_usb.cc
++++ b/libticables/trunk/src/link_usb.cc
+@@ -27,7 +27,7 @@
+ 
+ #ifndef NO_CABLE_SLV
+ 
+-#if defined(__WIN32__)
++#if defined(__WIN32__) && !defined(HAVE_LIBUSB_1_0)
+ # define HAVE_LIBUSB
+ #endif
+ 
+diff --git a/libticables/trunk/src/ticables.cc b/libticables/trunk/src/ticables.cc
+index a6da9fa..f61bafe 100644
+--- a/libticables/trunk/src/ticables.cc
++++ b/libticables/trunk/src/ticables.cc
+@@ -35,7 +35,9 @@
+ #include <sys/utsname.h>
+ #endif
+ 
+-#ifdef _MSC_VER
++#if defined(HAVE_LIBUSB_1_0)
++# include <libusb.h>
++#elif defined(_MSC_VER)
+ # include "./win32/usb.h"
+ #elif defined(HAVE_LIBUSB)
+ # include <usb.h>
+diff --git a/libticables/trunk/src/win32/detect.cc b/libticables/trunk/src/win32/detect.cc
+index 64f5671..4d85def 100644
+--- a/libticables/trunk/src/win32/detect.cc
++++ b/libticables/trunk/src/win32/detect.cc
+@@ -89,6 +89,16 @@ int win32_check_rwp(void)
+ #endif
+ }
+ 
++#ifdef HAVE_LIBUSB_1_0
++// libusb-1.0 backend (WinUSB / libusbK / libusb0.sys drivers): USB is usable if
++// libusb_init() succeeded in ticables_library_init().
++extern int libusb_working;
++
++int win32_check_libusb(void)
++{
++	return (libusb_working == 0) ? 0 : ERR_LIBUSBWIN32_NOT_PRESENT;
++}
++#else
+ int win32_check_libusb(void)
+ {
+ 	if(usb_get_version() != NULL)
+@@ -96,3 +106,4 @@ int win32_check_libusb(void)
+ 	else
+ 		return ERR_LIBUSBWIN32_NOT_PRESENT;
+ }
++#endif
+diff --git a/libticalcs/trunk/CMakeLists.txt b/libticalcs/trunk/CMakeLists.txt
+index 1a9bff6..c16d28d 100644
+--- a/libticalcs/trunk/CMakeLists.txt
++++ b/libticalcs/trunk/CMakeLists.txt
+@@ -69,8 +69,8 @@ if(LINUX)
+     target_link_libraries(ticalcs2 PRIVATE Threads::Threads)
+ endif()
+ 
+-# external deps lookup
+-if(WIN32)
++# external deps lookup (TICABLES_WIN32_LIBUSB1: see libticables/trunk/CMakeLists.txt)
++if(WIN32 AND NOT TICABLES_WIN32_LIBUSB1)
+     find_library(LIBUSB0 NAMES libusb0.lib usb0 REQUIRED)
+     target_link_libraries(ticalcs2 PRIVATE ${LIBUSB0})
+ else()

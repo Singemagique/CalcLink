@@ -115,6 +115,10 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
                 throw new CalcLinkException(CalcErrorCodes.NotOpen, "The calculator link is closed.");
             _sink.Target = progress;
             _sink.Prefix = string.Empty;
+            // One operation = one work item, possibly several native calls (e.g. one per file). Clear
+            // the native cancel flag once here, BEFORE listening for cancellation: from then on a
+            // cancel stays set across the calls instead of being wiped by the next one (B6).
+            NativeMethods.cl_reset_cancel(_handle);
             // Only cancel the native call while THIS item is running, so a token belonging to a queued
             // operation can't abort somebody else's transfer.
             using CancellationTokenRegistration reg = ct.CanBeCanceled
@@ -627,6 +631,16 @@ internal sealed partial class NativeCalculatorSession
         catch
         {
             session._disposed = 1;
+            // If the open got as far as a native handle before failing, close it (and the progress
+            // sink) on the worker before stopping it; otherwise the cable stays claimed.
+            try
+            {
+                await session._worker.RunAsync(session.CloseOnWorker).ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Best effort.
+            }
             session._worker.Dispose();
             throw;
         }

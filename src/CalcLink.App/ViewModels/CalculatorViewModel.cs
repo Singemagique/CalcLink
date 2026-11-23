@@ -442,13 +442,38 @@ public sealed partial class CalculatorViewModel : ObservableObject
             return;
         }
 
-        // OS files have their own guarded flow on the Tools page.
-        if (Connection.Service is { } service
-            && paths.Any(p => SafeClassify(service, p) == TiFileClass.Os))
+        // Classify everything first: a dropped folder can hold files that aren't calculator files
+        // (desktop.ini, notes, ...). Sending would stop at the first one (B8), so set them aside.
+        var skipped = new List<string>();
+        if (Connection.Service is { } service)
         {
-            await _dialogs.ShowMessageAsync("Operating system file",
-                "One of these files is a calculator operating system. Use Tools → Send OS… so CalcLink can check the battery and warn you before upgrading.");
-            return;
+            var classes = paths.Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(p => p, p => SafeClassify(service, p), StringComparer.OrdinalIgnoreCase);
+
+            // OS files have their own guarded flow on the Tools page.
+            if (classes.Values.Any(c => c == TiFileClass.Os))
+            {
+                await _dialogs.ShowMessageAsync("Operating system file",
+                    "One of these files is a calculator operating system. Use Tools → Send OS… so CalcLink can check the battery and warn you before upgrading.");
+                return;
+            }
+
+            var unknown = paths.Where(p => classes[p] == TiFileClass.Unknown).ToList();
+            if (unknown.Count > 0)
+            {
+                paths = paths.Where(p => classes[p] != TiFileClass.Unknown).ToList();
+                // Hidden and system files (desktop.ini, Thumbs.db) are skipped without a mention.
+                skipped = unknown.Where(p => !IsHiddenOrSystem(p)).ToList();
+                if (paths.Count == 0)
+                {
+                    if (skipped.Count > 0)
+                    {
+                        await _dialogs.ShowMessageAsync("Nothing to send",
+                            "None of these are calculator files:\n\n" + FileList(skipped));
+                    }
+                    return;
+                }
+            }
         }
 
         paths = await ResolveConflictsAsync(session, paths);
@@ -462,12 +487,46 @@ public sealed partial class CalculatorViewModel : ObservableObject
             (progress, ct) => session.SendFilesAsync(paths, progress, ct));
         if (outcome == OperationOutcome.Succeeded)
         {
-            _notifications.Post("Sent", $"Sent {what} to the calculator.", InfoBarSeverity.Success);
+            if (skipped.Count == 0)
+            {
+                _notifications.Post("Sent", $"Sent {what} to the calculator.", InfoBarSeverity.Success);
+            }
+            else
+            {
+                // Warning (not success) so the bar stays until dismissed: the user should see what was left out.
+                _notifications.Post("Sent, some files skipped",
+                    $"Sent {what}. Skipped {skipped.Count} that {(skipped.Count == 1 ? "isn't a calculator file" : "aren't calculator files")}: " +
+                    string.Join(", ", skipped.Take(5).Select(Path.GetFileName)) + (skipped.Count > 5 ? ", …" : "."),
+                    InfoBarSeverity.Warning);
+            }
         }
         if (outcome is OperationOutcome.Succeeded or OperationOutcome.Failed or OperationOutcome.Cancelled)
         {
             await RefreshIfPossibleAsync();
         }
+    }
+
+    private static bool IsHiddenOrSystem(string path)
+    {
+        try
+        {
+            return (File.GetAttributes(path) & (FileAttributes.Hidden | FileAttributes.System)) != 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    private static string FileList(IReadOnlyList<string> paths)
+    {
+        const int Shown = 10;
+        var lines = paths.Take(Shown).Select(p => "• " + Path.GetFileName(p)).ToList();
+        if (paths.Count > Shown)
+        {
+            lines.Add($"• …and {paths.Count - Shown} more");
+        }
+        return string.Join("\n", lines);
     }
 
     [RelayCommand(CanExecute = nameof(CanReceive))]

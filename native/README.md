@@ -76,9 +76,11 @@ packaging copies it to `native\<rid>\` next to the app:
   libusbK and libusb-win32's driver also work through libusb-1.0. Calculators bound to
   TI Connect's own driver are not seen.
 * **Non-ASCII paths:** libtifiles opens variables, apps, OS images, backups and TIGroups with
-  `g_fopen`, which takes UTF-8 paths on Windows, so these work with any path. libticalcs uses
-  plain `fopen` (ANSI code page) for **ROM dumps** (`cl_dump_rom`) and `.cer` certificate receipt.
-  The app manifest sets `activeCodePage=UTF-8`, which makes those paths UTF-8 too.
+  `g_fopen`, which takes UTF-8 paths on Windows, so these work with any path.
+  * Upstream libticalcs uses plain `fopen` (ANSI code page) for **ROM dumps** and `.cer` certificate
+    receipt. `patches/tilibs-0002-utf8-file-paths.patch` switches those to `g_fopen` too. It is applied
+    automatically to a fetched tilibs, and configure checks a local checkout for it.
+  * The app manifest also sets `activeCodePage=UTF-8`.
 * **Non-silent models** (TI-82/85: `FTS_SILENT` unset): `cl_recv_var` returns `CL_E_NOT_SUPPORTED`,
   because those models need the transfer to be started on the calculator. `cl_backup` on these models
   keeps waiting (as TiLP does) until the user starts the backup on the calculator or calls `cl_cancel`.

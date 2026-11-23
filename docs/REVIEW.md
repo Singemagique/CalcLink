@@ -27,6 +27,18 @@
 
 B3 and B9 were checked in the app against the simulator.
 
+**Fixed later (2026-11-22):** B4, B6, B7 and B8. Every bug in this list is now fixed.
+* **B4:** `patches/tilibs-0002-utf8-file-paths.patch` switches libticalcs' own file writes (TI-83 Plus-family and Nspire ROM dumps, certificate receipt) to `g_fopen`. A fetched tilibs gets it automatically, and configure checks a local checkout for it.
+  * This work turned up a separate problem: `tilibs-0001-…patch` had been committed with **no line breaks at all**, so a build that fetches tilibs could not apply it. Local-checkout builds never hit this.
+  * Both patches were regenerated with `git diff --output` and checked to apply cleanly to upstream. `.gitattributes` now keeps `*.patch` byte-exact.
+  * Not tested with a real ROM dump to a non-ASCII folder.
+* **B6:** calls no longer clear the cancel flag. The new `cl_reset_cancel` (ABI 3) is called once per work item by `NativeCalculatorSession.Run`, before it registers for cancellation, so a cancel between two calls of one operation stays set. `calclink.h` documents who owns the flag.
+* **B7:** if `ConnectionService.ConnectAsync` fails or is cancelled after the link opened (while reading info), it now unhooks, clears and disposes the session. `NativeCalculatorSession.OpenAsync` also closes a half-opened handle on failure.
+* **B8:** `SendPathsAsync` classifies every path first. Files that aren't calculator files are set aside: hidden and system ones (`desktop.ini`) silently, the rest listed in a warning after the send.
+* **Tests:**
+  * B8 was checked in the simulator: `A.8Xn` was sent, `notes.txt` was reported as skipped, and `desktop.ini` was skipped silently.
+  * B6 and B7 are races that the simulator can't trigger on demand, and haven't been seen live.
+
 **Hardware check of B9 (TI-83 Plus, OS 1.16, SilverLink).** The calculator **silently overwrites** a variable with the same name, whether it is in RAM or archived. An archived variable stays archived, and the transfer reports success. That confirms the prompt is needed and that "Replace" really replaces. The test round trip used a throwaway program, `CLTEST`:
 1. Send version A, then version B, then read it back: B.
 2. With A on the calculator, archive it, send B, then read it back: B, still archived.
@@ -40,11 +52,11 @@ B3 and B9 were checked in the app against the simulator.
 | B1 ✅ | **High** | `NativeCalculatorSession.cs:509,523` | A failed or cancelled **Backup or ROM dump deletes the destination file**. That may be an older backup the user chose to replace. tilibs only writes the file on success, so the old file was still intact before CalcLink deleted it. | Write to `<path>.partial`, then `File.Move(overwrite: true)` on success. Never delete the destination. |
 | B2 ✅ | Medium | `ToolsViewModel.cs:200`, `calclink.cc:2005-2006` | **Set / Sync clock resets the calculator's date and time formats** when the clock hasn't been read first. It sends format 0, which the 84+ decodes as Y/M/D, and coerces the time format to 24 h. | In `cl_set_clock`, keep the formats from the `get_clock` it already does when the input is 0. |
 | B3 | Medium | `MainWindow.xaml.cs:84`, `SerialWorker.cs:16` | **Closing the window mid-transfer kills the link thread** with no warning. During Send OS that can leave the calculator in its boot loader. | Handle `AppWindow.Closing`. If an operation is running, cancel the close and ask. Otherwise await `DisconnectAsync`. |
-| B4 | Medium | `calclink.cc:2076` → tilibs `romdump.cc:345` | **ROM dump fails, or writes a garbled name, under non-ASCII paths** such as `C:\Users\José`. tilibs uses `fopen` instead of `g_fopen`. | Add `g_fopen` to the tilibs patch. |
+| B4 ✅ | Medium | `calclink.cc:2076` → tilibs `romdump.cc:345` | **ROM dump fails, or writes a garbled name, under non-ASCII paths** such as `C:\Users\José`. tilibs uses `fopen` instead of `g_fopen`. | Add `g_fopen` to the tilibs patch. |
 | B5 ✅ | Medium (plausible) | `DevicesViewModel.cs:104`, `calclink.cc:968` | **Scan is allowed while a session is open.** On a SilverLink the probe opens the same cable, and tilibs keeps SilverLink transfer state in file-level statics shared by all handles. | Disable Scan while connected, or serialize all USB calls on one thread. |
-| B6 | Low | `calclink.cc:395` | **Cancel can be lost.** `OpScope` clears the cancel flag at the start of every call, so a Cancel that lands between calls is dropped. | Reset the flag once per work item from C#, not in `OpScope`. |
-| B7 | Low | `ConnectionService.cs:119-124` | **Cancelling "Connecting…" leaves a live session** that the UI says was cancelled. | On exception after open, dispose the session and clear it. |
-| B8 | Low | `CalculatorPage.xaml.cs:81` | **Dropping a folder stops at the first non-TI file** (for example `desktop.ini`), partway through the batch. | Skip unknown files and report them. |
+| B6 ✅ | Low | `calclink.cc:395` | **Cancel can be lost.** `OpScope` clears the cancel flag at the start of every call, so a Cancel that lands between calls is dropped. | Reset the flag once per work item from C#, not in `OpScope`. |
+| B7 ✅ | Low | `ConnectionService.cs:119-124` | **Cancelling "Connecting…" leaves a live session** that the UI says was cancelled. | On exception after open, dispose the session and clear it. |
+| B8 ✅ | Low | `CalculatorPage.xaml.cs:81` | **Dropping a folder stops at the first non-TI file** (for example `desktop.ini`), partway through the batch. | Skip unknown files and report them. |
 | B9 | Medium (probable) | `CalculatorViewModel.cs:361-388` | **Send never checks for a variable with the same name.** Whether the calculator overwrites or skips depends on the model; the simulator overwrites. | Compare names with the loaded list and offer Replace / Skip / Cancel. |
 | B10 | Medium | `ShellViewModel.cs:66-77`, `OperationService.cs:86` | **The "Connection lost" message is replaced** by "…was cancelled" from the operation it cancelled. | Don't post the cancel notice when the cancel came from a lost link. |
 

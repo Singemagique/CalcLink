@@ -1,0 +1,55 @@
+diff --git a/libticalcs/trunk/src/calc_nsp.cc b/libticalcs/trunk/src/calc_nsp.cc
+index be7370f..2e057c0 100644
+--- a/libticalcs/trunk/src/calc_nsp.cc
++++ b/libticalcs/trunk/src/calc_nsp.cc
+@@ -32,6 +32,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include <time.h>
++#include <glib/gstdio.h>
+ 
+ #include "ticalcs.h"
+ #include "gettext.h"
+@@ -798,7 +799,7 @@ static int		dump_rom_2	(CalcHandle* handle, CalcDumpSize size, const char *filen
+ 
+ 	ticalcs_info("FIXME: make ROM dumping work above OS 1.x, using the Fron method");
+ 
+-	f = fopen(filename, "wb");
++	f = g_fopen(filename, "wb"); // UTF-8 path on every platform (plain fopen uses the ANSI code page on Windows)
+ 	if (f == NULL)
+ 	{
+ 		return ERR_OPEN_FILE;
+diff --git a/libticalcs/trunk/src/calc_xx.cc b/libticalcs/trunk/src/calc_xx.cc
+index 046b270..51b14a5 100644
+--- a/libticalcs/trunk/src/calc_xx.cc
++++ b/libticalcs/trunk/src/calc_xx.cc
+@@ -27,6 +27,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
++#include <glib/gstdio.h>
+ 
+ #include "ticalcs.h"
+ #include "internal.h"
+@@ -1897,7 +1898,7 @@ int TICALL ticalcs_calc_recv_cert2(CalcHandle* handle, const char* filename)
+ 				break;
+ 			}
+ 
+-			FILE * f = fopen(basename, "wb");
++			FILE * f = g_fopen(basename, "wb"); // UTF-8 path (plain fopen uses the ANSI code page on Windows)
+ 			free(basename);
+ 			if (!f)
+ 			{
+diff --git a/libticalcs/trunk/src/romdump.cc b/libticalcs/trunk/src/romdump.cc
+index 77365d3..5c81579 100644
+--- a/libticalcs/trunk/src/romdump.cc
++++ b/libticalcs/trunk/src/romdump.cc
+@@ -342,7 +342,7 @@ int TICALL rd_read_dump(CalcHandle* handle, const char *filename)
+ 
+ 	data = (uint8_t *)handle->buffer;
+ 
+-	f = fopen(filename, "wb");
++	f = g_fopen(filename, "wb"); // UTF-8 path on every platform (plain fopen uses the ANSI code page on Windows)
+ 	if (f == NULL)
+ 	{
+ 		return ERR_OPEN_FILE;

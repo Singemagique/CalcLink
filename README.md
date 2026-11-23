@@ -106,7 +106,7 @@ These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §
 * **F9 Command-line tool:** `calclink send / recv / backup / screen / info`.
 * **F12 Emulator link:** connect to an emulator instead of a real calculator.
 
-Known open bugs are listed in [docs/REVIEW.md](docs/REVIEW.md) §1: B4, B6, B7 and B8.
+Every bug from the code review ([docs/REVIEW.md](docs/REVIEW.md) §1, B1–B10) is fixed.
 
 ## License
 
