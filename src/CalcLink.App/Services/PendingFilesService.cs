@@ -26,30 +26,21 @@ public sealed partial class PendingFilesService : ObservableObject
         _ => $"{string.Join(", ", _files.Take(3).Select(Path.GetFileName))}{(_files.Count > 3 ? ", …" : string.Empty)} — connect to a calculator to send them.",
     };
 
-    /// <summary>Keeps the arguments that are existing files (switches and junk are ignored).</summary>
-    public void SetFromCommandLine(IEnumerable<string> args)
+    /// <summary>
+    /// Adds files to the queue (no duplicates). Explorer's "Send to calculator" starts CalcLink once
+    /// per selected file, and each launch adds its file here.
+    /// </summary>
+    public void Add(IEnumerable<string> files)
     {
-        var files = new List<string>();
-        foreach (var arg in args)
+        var all = new List<string>(_files);
+        foreach (var f in files)
         {
-            if (string.IsNullOrWhiteSpace(arg) || arg.StartsWith('-') || arg.StartsWith('/'))
+            if (!all.Contains(f, StringComparer.OrdinalIgnoreCase))
             {
-                continue;
-            }
-            try
-            {
-                string full = Path.GetFullPath(arg.Trim('"'));
-                if (File.Exists(full) && !files.Contains(full, StringComparer.OrdinalIgnoreCase))
-                {
-                    files.Add(full);
-                }
-            }
-            catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
-            {
-                // Not a usable path.
+                all.Add(f);
             }
         }
-        Replace(files);
+        Replace(all);
     }
 
     /// <summary>Returns the pending files and clears the list.</summary>

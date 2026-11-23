@@ -125,6 +125,7 @@ public sealed partial class MainWindow : Window
             }
         }
         _navigation.Navigate(AppPage.Devices);
+        ((App)Application.Current).OnShellReady();
     }
 
     private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

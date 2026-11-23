@@ -164,12 +164,28 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
 | F5 ✅ | **Group-file explorer (replaces GFM)** | Open `.8xg`/`.tig`/`.89g` files, list and extract their contents, build new groups, and send selected items. libtifiles already has the helpers. **Done for `.tig` and the TI-83/84 Plus family** (see below); 68k groups (`.89g`) not yet. | M |
 | F6 | **Picture and image viewer** | Show `.8xi`/`.8ci`/`.8ca` and Pic variables as images, and convert PNG to calculator images. | M |
-| F7 | **Explorer integration** | Double-click `.8xp`/`.8xk`/… to open in CalcLink. Add "Send to calculator" to the right-click menu. Allow drag onto the app's taskbar or tray. | S–M |
+| F7 ✅ | **Explorer integration** | Double-click `.8xp`/`.8xk`/… to open in CalcLink. Add "Send to calculator" to the right-click menu. Allow drag onto the app's taskbar or tray. **Done** except the taskbar/tray drop (see below). | S–M |
 | F8 | **Diagnostics view** | A runtime toggle for cable byte logging and a protocol event log (`ticalcs_calc_set_event_hook`), plus "Export diagnostics" for bug reports. This was how the SilverLink and WinUSB problem was solved. | M |
 | F9 | **Command-line tool** | `calclink send/recv/backup/screen/info` for scripting and classroom setup. `clprobe` is already most of it. | M |
 | F10 | **Screen recording** | Record animated GIF or MP4 from Live view, add a scale option, and include the frame or bezel. | S–M |
 | F11 | **Multiple calculators / classroom mode** | Send the same files to every connected calculator at once. tilibs is handle-based, so it's feasible, but the current UI assumes one session. | L |
 | F12 | **Emulator link** (TCP cable to TilEm or CEmu) | Develop and test without hardware. | M |
+
+**F7 as built.**
+* **One CalcLink at a time.** `Program.cs` replaces the XAML-generated `Main` and registers the instance key "CalcLink.Main". A second launch redirects its activation to the running process with `AppInstance.RedirectActivationToAsync`, hands it the foreground, and exits. Before Settings → Restart now, the key is unregistered so the new process doesn't redirect to the one that's exiting.
+* **Routing (`LaunchArguments`).**
+  * A plain open of one file the Files page can read (checked by its header) opens it there.
+  * `--send`, several files, or anything else (apps, OS, 68k) is queued in `PendingFilesService`, which now appends.
+  * Queued files are sent at once if a calculator is connected. Otherwise the app goes to Devices and scans, and a single calculator found connects and sends.
+* **Installer.**
+  * The existing "Open with" registration is kept.
+  * New: a "Send to calculator (CalcLink)" verb under `SystemFileAssociations\.<ext>\shell`, so it appears whichever app is the default. It covers 28 variable, group, app and backup extensions, not OS files.
+* **Tested** with the simulator, by launching the exe as Explorer does:
+  * opening a `.8xp` showed it on the Files page;
+  * a second launch with a `.tig` redirected in 0.1 s, and the running window showed the backup;
+  * `--send` while not connected queued the file on Devices, and connecting sent it (with the name-clash prompt);
+  * `--send` while connected sent at once.
+* **Not tested:** the registry entries themselves. Inno Setup isn't installed here, so the script wasn't compiled, and nothing was registered on this PC.
 
 **F5 as built.** A **Files** page that works without a calculator (`FilesViewModel`, `CalcLink.Core/GroupFile.cs`).
 * **What it opens.**

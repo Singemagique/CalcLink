@@ -270,6 +270,151 @@ Root: HKA; Subkey: "Software\Classes\Applications\{#AppExeName}\SupportedTypes";
 Root: HKA; Subkey: "Software\Classes\.tig"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
 Root: HKA; Subkey: "Software\Classes\.tig\OpenWithProgids"; ValueType: string; ValueName: "{#ProgId}"; ValueData: ""; Flags: uninsdeletevalue uninsdeletekeyifempty; Tasks: fileassoc
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExeName}\SupportedTypes"; ValueType: string; ValueName: ".tig"; ValueData: ""; Tasks: fileassoc
+; "Send to calculator (CalcLink)" on the right-click menu. Registered under SystemFileAssociations so it
+; shows whichever app opens the extension by default. Explorer starts CalcLink once per selected file;
+; each launch hands its file to the running CalcLink (Program.cs), which sends it or queues it until a
+; calculator is connected. Not offered for OS files: those go through Tools -> Send OS (battery check).
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xp"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xp\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xp\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xp\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xp\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xv"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xv\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xv\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xv\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xv\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xg"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xg\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xg\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xg\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xg\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xk"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xk\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xk\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xk\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xk\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ek"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ek\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ek\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ek\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ek\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xl"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xl\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xl\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xl\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xl\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xm"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xm\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xm\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xm\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xm\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xn"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xn\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xn\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xn\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xn\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xs"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xs\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xs\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xs\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xs\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xy"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xy\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xy\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xy\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xy\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xi"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xi\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xi\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xi\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8xi\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ci"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ci\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ci\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ci\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ci\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ca"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ca\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ca\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ca\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.8ca\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83g"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83g\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83g\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83g\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.83g\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82g"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82g\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82g\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82g\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.82g\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.85p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.85p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.85p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.85p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.85p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.86p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.86p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.86p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.86p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.86p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.73p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.73p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.73p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.73p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.73p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89g"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89g\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89g\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89g\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89g\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89k"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89k\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89k\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89k\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.89k\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xp"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xp\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xp\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xp\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xp\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xk"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xk\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xk\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xk\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.9xk\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.v2p"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.v2p\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.v2p\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.v2p\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.v2p\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tns"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tns\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tns\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tns\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tns\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tig"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tig\shell"; Flags: uninsdeletekeyifempty; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tig\shell\CalcLink.Send"; ValueType: string; ValueName: ""; ValueData: "Send to calculator (CalcLink)"; Flags: uninsdeletekey; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tig\shell\CalcLink.Send"; ValueType: string; ValueName: "Icon"; ValueData: """{app}\{#AppExeName}"",0"; Tasks: fileassoc
+Root: HKA; Subkey: "Software\Classes\SystemFileAssociations\.tig\shell\CalcLink.Send\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#AppExeName}"" --send ""%1"""; Tasks: fileassoc
+
 
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent

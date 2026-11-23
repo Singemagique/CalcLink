@@ -34,6 +34,28 @@ public static class GroupFile
         ".8xd", ".8xc", ".8xw", ".8xz", ".8xt", ".8ca", ".8ci",
     ];
 
+    /// <summary>
+    /// True when the Files page can show <paramref name="path"/>: a .tig, or a TI-83 / TI-83 Plus family
+    /// variable or group file (checked by its header, not just its extension).
+    /// </summary>
+    public static bool CanOpen(string path)
+    {
+        try
+        {
+            if (string.Equals(Path.GetExtension(path), ".tig", StringComparison.OrdinalIgnoreCase))
+            {
+                return File.Exists(path);
+            }
+            using var s = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[55];
+            return s.Length >= 55 && s.ReadAtLeast(head, 55, throwOnEndOfStream: false) == 55 && TiVarFile.IsSupported(head);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
+    }
+
     /// <exception cref="FormatException">The file isn't one CalcLink can open.</exception>
     public static GroupContents Open(string path, string workFolder)
     {

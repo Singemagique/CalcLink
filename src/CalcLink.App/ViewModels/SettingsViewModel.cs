@@ -199,6 +199,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         string reason;
         try
         {
+            // Give up "the running CalcLink" first, or the new process could find this one still
+            // registered and hand itself over to it as it exits (Program.RedirectToRunningInstance).
+            AppInstance.GetCurrent().UnregisterKey();
             // Terminates this process and starts a new instance on success; returns only on failure.
             reason = AppInstance.Restart(string.Empty).ToString();
         }

@@ -20,6 +20,10 @@
     <SelfContained>true</SelfContained>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Program.cs has its own Main: it hands a second launch's files to the running CalcLink. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>  <!-- LibraryImport in Program.cs -->
+
   </PropertyGroup>
 
   <!-- Pick a RID from the platform when building from the CLI with -p:Platform=... -->

@@ -401,6 +401,12 @@ public sealed partial class CalculatorViewModel : ObservableObject
         {
             await RefreshAsync();
         }
+        await SendPendingAsync();
+    }
+
+    /// <summary>Sends files queued by "Send to calculator" in Explorer, if a calculator is ready.</summary>
+    public async Task SendPendingAsync()
+    {
         if (Pending.HasPending && CanSend)
         {
             await SendPathsAsync(Pending.Take());

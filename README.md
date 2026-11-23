@@ -29,6 +29,10 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
 * **Files.** Works without a calculator. It opens CalcLink backups and TI groups (`.tig`), TI-83 Plus / TI-84 Plus group files (`.8xg`) and single variable files, and lists what's inside.
   * From there you can read a program, save items as files of their own, save a selection as a new `.8xg` group, or send the chosen items to the connected calculator.
   * **Browse contents** on a backup opens it here.
+* **Explorer.** With the installer's "file types" option, CalcLink is added to the "Open with" menu for calculator files, and a right-click **Send to calculator (CalcLink)** appears for them.
+  * **Open:** a variable, group or backup file opens on the Files page. Apps and other files are queued to be sent.
+  * **Send to calculator:** sends at once if a calculator is connected. Otherwise the files wait on the Devices page until you connect.
+  * Only one CalcLink runs at a time: opening a file while it's running hands the file to the open window.
 * **Long transfers.** The status bar shows the item count, the speed and the time left, and the taskbar button shows progress. Closing the window during a transfer asks first.
 * **Backups and ROM dumps** go to a temporary file first, so a failed or cancelled run never destroys an existing file.
 
@@ -107,7 +111,6 @@ These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §
 
 * **F5, the rest:** TI-89 / TI-92 group files (`.89g`, `.9xg`), which the Files page can't open yet.
 * **F6 Picture viewer:** show Pic variables and image files, and convert PNGs to calculator images.
-* **F7 Explorer integration:** double-click a calculator file, or right-click → Send to calculator.
 * **F9 Command-line tool:** `calclink send / recv / backup / screen / info`.
 * **F12 Emulator link:** connect to an emulator instead of a real calculator.
 
