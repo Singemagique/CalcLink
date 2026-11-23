@@ -104,6 +104,27 @@ int guarded(F&& f) noexcept
     }
 }
 
+// tilibs logs routine link chatter (probe timeouts, "ticables_cable_recv: len = 0", ...) through
+// GLib, whose default handler prints to stderr. Nobody sees that in the app, but it buries
+// calclink-cli's output. Drop it unless CALCLINK_LOG is set (then GLib prints it as before).
+void tilibs_log_handler(const gchar* domain, GLogLevelFlags level, const gchar* message, gpointer) noexcept
+{
+    static const bool show = std::getenv("CALCLINK_LOG") != nullptr;
+    if (show)
+    {
+        g_log_default_handler(domain, level, message, nullptr);
+    }
+}
+
+void quiet_tilibs_logging() noexcept
+{
+    const auto levels = static_cast<GLogLevelFlags>(G_LOG_LEVEL_MASK | G_LOG_FLAG_RECURSION);
+    for (const char* domain : {"ticables", "tifiles", "ticalcs", "ticonv"})
+    {
+        g_log_set_handler(domain, levels, tilibs_log_handler, nullptr);
+    }
+}
+
 int ensure_init() noexcept
 {
     try
@@ -111,6 +132,7 @@ int ensure_init() noexcept
         std::lock_guard<std::mutex> lock(g_init_mutex);
         if (!g_inited)
         {
+            quiet_tilibs_logging();
             // libticonv has no *_library_init; the other three are refcounted internally.
             ticables_library_init();
             tifiles_library_init();

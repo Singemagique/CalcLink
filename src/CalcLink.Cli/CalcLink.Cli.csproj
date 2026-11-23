@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- calclink-cli.exe: CalcLink from the command line (F9). Uses CalcLink.Core like the app does.
+       Not "calclink.exe": Windows file names are case-insensitive, and the app is CalcLink.exe. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>calclink-cli</AssemblyName>
+    <RootNamespace>CalcLink.Cli</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">
+    <RuntimeIdentifier>win-arm64</RuntimeIdentifier>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CalcLink.Core\CalcLink.Core.csproj" />
+  </ItemGroup>
+
+  <!-- Same dev convenience as the app: a locally built native backend goes to native\<rid>\. -->
+  <PropertyGroup>
+    <CalcLinkNativePreset Condition="'$(RuntimeIdentifier)' == 'win-arm64'">win-arm64-release</CalcLinkNativePreset>
+    <CalcLinkNativePreset Condition="'$(CalcLinkNativePreset)' == ''">win-x64-release</CalcLinkNativePreset>
+    <CalcLinkNativeBin Condition="'$(CalcLinkNativeBin)' == ''">$(MSBuildThisFileDirectory)..\..\native\out\install\$(CalcLinkNativePreset)\bin</CalcLinkNativeBin>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('$(CalcLinkNativeBin)\calclink_native.dll') and '$(RuntimeIdentifier)' != ''">
+    <None Include="$(CalcLinkNativeBin)\*.dll"
+          Link="native\$(RuntimeIdentifier)\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

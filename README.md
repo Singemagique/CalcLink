@@ -85,12 +85,33 @@ These are all the models tilibs supports:
 
 Which features are available depends on the model, and the UI shows only what the connected calculator supports.
 
+## Command line
+
+`calclink-cli.exe` sits next to `CalcLink.exe` and does the same jobs from scripts, for example a scheduled weekly backup:
+
+```
+calclink-cli devices                     list connected calculators
+calclink-cli info                        model, ID, OS, free memory, battery
+calclink-cli list                        variables, programs and apps
+calclink-cli send FILE...                send files (--replace or --skip-existing if names clash)
+calclink-cli receive NAME... --to DIR    receive variables; NAME may use * and ?
+calclink-cli backup [FILE]               full backup; without FILE, a dated file in the app's backups folder
+calclink-cli screenshot FILE.png         save the screen (--scale N enlarges it)
+calclink-cli view NAME|FILE              print a program as text
+```
+
+* **Options:** `--device N` picks a calculator when several are connected. `--simulator` uses the simulated ones.
+* **Exit codes:** 0 done, 1 failed, 2 bad command line, 3 no calculator found.
+* **Diagnostics:** set `CALCLINK_LOG=1` to see the link library's diagnostic messages.
+* **Name clashes:** `send` won't overwrite a variable unless you say so (`--replace`), because the calculator itself would replace it without asking.
+
 ## Repository layout
 
 | Path | What |
 |---|---|
 | `src/CalcLink.App` | WinUI 3 desktop app (unpackaged, self-contained Windows App SDK) |
 | `src/CalcLink.Core` | Backend-agnostic contract (`Abstractions/`), native P/Invoke backend, simulator |
+| `src/CalcLink.Cli` | `calclink-cli.exe`, the command-line tool (uses CalcLink.Core) |
 | `tests/CalcLink.Core.Tests` | xUnit tests: simulator, interop struct layout, factory, calculator IDs, name-clash rules and safe file writes |
 | `native/` | `calclink_native.dll` C shim over tilibs (CMake + vcpkg presets), the `clprobe` command-line hardware test tool, and the `calclink-driver` USB driver setup helper |
 | `installer/` | Inno Setup script (per-user, x64/arm64) and winget manifest templates |
@@ -111,7 +132,6 @@ These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §
 
 * **F5, the rest:** TI-89 / TI-92 group files (`.89g`, `.9xg`), which the Files page can't open yet.
 * **F6 Picture viewer:** show Pic variables and image files, and convert PNGs to calculator images.
-* **F9 Command-line tool:** `calclink send / recv / backup / screen / info`.
 * **F12 Emulator link:** connect to an emulator instead of a real calculator.
 
 Every bug from the code review ([docs/REVIEW.md](docs/REVIEW.md) §1, B1–B10) is fixed.

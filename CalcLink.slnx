@@ -3,6 +3,7 @@
     <Project Path="src/CalcLink.App/CalcLink.App.csproj">
       <Platform Project="x64" />
     </Project>
+    <Project Path="src/CalcLink.Cli/CalcLink.Cli.csproj" />
     <Project Path="src/CalcLink.Core/CalcLink.Core.csproj" />
   </Folder>
   <Folder Name="/tests/">

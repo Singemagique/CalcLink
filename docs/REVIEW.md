@@ -166,10 +166,25 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F6 | **Picture and image viewer** | Show `.8xi`/`.8ci`/`.8ca` and Pic variables as images, and convert PNG to calculator images. | M |
 | F7 ✅ | **Explorer integration** | Double-click `.8xp`/`.8xk`/… to open in CalcLink. Add "Send to calculator" to the right-click menu. Allow drag onto the app's taskbar or tray. **Done** except the taskbar/tray drop (see below). | S–M |
 | F8 | **Diagnostics view** | A runtime toggle for cable byte logging and a protocol event log (`ticalcs_calc_set_event_hook`), plus "Export diagnostics" for bug reports. This was how the SilverLink and WinUSB problem was solved. | M |
-| F9 | **Command-line tool** | `calclink send/recv/backup/screen/info` for scripting and classroom setup. `clprobe` is already most of it. | M |
+| F9 ✅ | **Command-line tool** | `calclink send/recv/backup/screen/info` for scripting and classroom setup. `clprobe` is already most of it. **Done** as `calclink-cli.exe` (see below). | M |
 | F10 | **Screen recording** | Record animated GIF or MP4 from Live view, add a scale option, and include the frame or bezel. | S–M |
 | F11 | **Multiple calculators / classroom mode** | Send the same files to every connected calculator at once. tilibs is handle-based, so it's feasible, but the current UI assumes one session. | L |
 | F12 | **Emulator link** (TCP cable to TilEm or CEmu) | Develop and test without hardware. | M |
+
+**F9 as built.** `src/CalcLink.Cli`, published as `calclink-cli.exe`. It isn't called "calclink.exe" because Windows names are case-insensitive and would clash with `CalcLink.exe`.
+* **Commands:** devices, info, list, send, receive (with wildcards), backup, screenshot, view.
+* **Built on Core**, so it behaves like the app:
+  * Backups go to the same folder. Model names and backup extensions moved from the app into `CalcModelNames`, so both name the folder identically, and the tool reads the app's backups-folder setting.
+  * `send` refuses name clashes unless `--replace` or `--skip-existing` is given, and refuses OS files (use the app's guarded Send OS).
+* **New in Core:** `ScreenPng` writes screenshots as PNG without an imaging library; its checksum and pixels are unit-tested.
+* **Native layer:** tilibs' GLib log output, routine link chatter that printed dozens of warnings per command, is now dropped unless `CALCLINK_LOG` is set.
+* **Packaging:**
+  * `Build-Portable.ps1` publishes the tool into the app folder and checks that shared runtime files are identical.
+  * It also fixes an existing failure: the app's dev-time native copy collided with the script's own copy whenever the native layer was built.
+  * The portable zip was built and both executables ran from it.
+* **Tested:**
+  * On the simulator, every command, including clash refusal, `--replace`, wildcard receive and PNG output.
+  * On the TI-83 Plus: devices, info, list (66 items), view, screenshot, receive and a full backup (77 s).
 
 **F7 as built.**
 * **One CalcLink at a time.** `Program.cs` replaces the XAML-generated `Main` and registers the instance key "CalcLink.Main". A second launch redirects its activation to the running process with `AppInstance.RedirectActivationToAsync`, hands it the foreground, and exits. Before Settings → Restart now, the key is unregistered so the new process doesn't redirect to the one that's exiting.

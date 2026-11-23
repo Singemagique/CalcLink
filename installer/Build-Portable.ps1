@@ -8,6 +8,7 @@
     The staged layout is:
         <OutDir>\stage\<Rid>\CalcLink\
             CalcLink.exe, CalcLink.dll, ... (dotnet publish output, self-contained)
+            calclink-cli.exe (command-line tool, same runtime)
             native\<Rid>\calclink_native.dll, tilibs/glib/libusb DLLs, clprobe.exe, calclink-driver.exe
             LICENSE.txt
             docs\DRIVERS.md
@@ -90,13 +91,41 @@ if (-not $SkipPublish) {
     New-Item -ItemType Directory -Force $Stage, $Symbols | Out-Null
 
     # 1. Self-contained WinUI 3 publish (SelfContained/WindowsAppSDKSelfContained are set in the csproj).
+    #    CalcLinkNativeBin points nowhere: the projects' dev-convenience native copy is off, because
+    #    step 2 places the native files itself (and refuses collisions).
+    $noNative = Join-Path $StageRoot '__no-native'
     Invoke-Native 'dotnet' @(
         'publish', (Join-Path $RepoRoot 'src\CalcLink.App'),
         '-c', $Configuration, '-r', $Rid, "-p:Platform=$Platform",
-        "-p:Version=$Version", '-o', $Stage, '--nologo')
+        "-p:Version=$Version", "-p:CalcLinkNativeBin=$noNative", '-o', $Stage, '--nologo')
 
     if (-not (Test-Path (Join-Path $Stage $ExeName))) {
         throw "$ExeName not found in publish output ($Stage). Did the app's AssemblyName change?"
+    }
+
+    # 1b. The command-line tool (calclink-cli.exe), self-contained on the same .NET runtime. It's
+    #     published apart and merged in: files it shares with the app must be identical.
+    $cliOut = Join-Path $StageRoot 'cli'
+    Invoke-Native 'dotnet' @(
+        'publish', (Join-Path $RepoRoot 'src\CalcLink.Cli'),
+        '-c', $Configuration, '-r', $Rid, '--self-contained', "-p:Platform=$Platform",
+        "-p:Version=$Version", "-p:CalcLinkNativeBin=$noNative", '-o', $cliOut, '--nologo')
+    $cliRoot = (Get-Item $cliOut).FullName   # long form; $cliOut may be an 8.3 short path
+    foreach ($f in Get-ChildItem -Recurse -File $cliRoot) {
+        $rel = [IO.Path]::GetRelativePath($cliRoot, $f.FullName)
+        $dest = Join-Path $Stage $rel
+        if (Test-Path $dest) {
+            if ((Get-FileHash $dest).Hash -ne (Get-FileHash $f.FullName).Hash) {
+                throw "calclink-cli and the app both ship '$rel', with different contents (runtime version mismatch?)."
+            }
+            continue
+        }
+        New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+        Copy-Item $f.FullName $dest
+    }
+    Remove-Item -Recurse -Force $cliOut
+    if (-not (Test-Path (Join-Path $Stage 'calclink-cli.exe'))) {
+        throw "calclink-cli.exe not found after merging the CLI publish."
     }
 
     # 2. Native backend.
