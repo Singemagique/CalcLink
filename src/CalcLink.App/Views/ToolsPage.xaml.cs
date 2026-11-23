@@ -27,6 +27,9 @@ public sealed partial class ToolsPage : Page
     private void OnRestoreClick(object sender, RoutedEventArgs e) =>
         Run(ViewModel.Backups.RestoreCommand, sender);
 
+    private void OnBrowseBackupClick(object sender, RoutedEventArgs e) =>
+        Run(ViewModel.Backups.BrowseCommand, sender);
+
     private void OnShowInFolderClick(object sender, RoutedEventArgs e) =>
         Run(ViewModel.Backups.ShowInFolderCommand, sender);
 

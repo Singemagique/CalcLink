@@ -72,6 +72,12 @@
                         <FontIcon Glyph="&#xE90F;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <!-- Works without a calculator, so it's never disabled. -->
+                <NavigationViewItem Content="Files" Tag="Files" ToolTipService.ToolTip="Look inside group, backup and variable files">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8B7;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Content="Settings" Tag="Settings">

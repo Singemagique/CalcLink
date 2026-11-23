@@ -26,6 +26,9 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
   * On flash models (TI-83 Plus, TI-84 Plus family and so on), a backup is a TI group (`.tig`) with every variable, program and app, in RAM and in the archive. The model's own backup format (`.8xb`) holds only RAM.
   * The Tools page lists past backups. **Restore…** shows what's in a backup, with the items no longer on the calculator ticked, and sends back what you choose.
   * The TI-83 Plus can't receive straight into its archive, so restored archived items arrive in RAM, and CalcLink lists the ones to archive afterwards. CalcLink also warns when a selection won't fit in free RAM.
+* **Files.** Works without a calculator. It opens CalcLink backups and TI groups (`.tig`), TI-83 Plus / TI-84 Plus group files (`.8xg`) and single variable files, and lists what's inside.
+  * From there you can read a program, save items as files of their own, save a selection as a new `.8xg` group, or send the chosen items to the connected calculator.
+  * **Browse contents** on a backup opens it here.
 * **Long transfers.** The status bar shows the item count, the speed and the time left, and the taskbar button shows progress. Closing the window during a transfer asks first.
 * **Backups and ROM dumps** go to a temporary file first, so a failed or cancelled run never destroys an existing file.
 
@@ -102,7 +105,7 @@ If `calclink_native.dll` is missing, the app falls back to the simulator automat
 
 These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §3. No order is set yet.
 
-* **F5 Group-file explorer:** open `.8xg` / `.tig` / `.89g` files, extract items and build new groups.
+* **F5, the rest:** TI-89 / TI-92 group files (`.89g`, `.9xg`), which the Files page can't open yet.
 * **F6 Picture viewer:** show Pic variables and image files, and convert PNGs to calculator images.
 * **F7 Explorer integration:** double-click a calculator file, or right-click → Send to calculator.
 * **F9 Command-line tool:** `calclink send / recv / backup / screen / info`.

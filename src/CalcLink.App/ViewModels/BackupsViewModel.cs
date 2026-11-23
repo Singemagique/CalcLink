@@ -40,10 +40,15 @@ public sealed partial class BackupsViewModel : ObservableObject
     private readonly NotificationService _notifications;
     private readonly SettingsService _settings;
     private readonly CalculatorViewModel _calculator;
+    private readonly FilesViewModel _files;
+    private readonly NavigationService _navigation;
 
     public BackupsViewModel(ConnectionService connection, OperationService operations, DialogService dialogs,
-        PickerService pickers, NotificationService notifications, SettingsService settings, CalculatorViewModel calculator)
+        PickerService pickers, NotificationService notifications, SettingsService settings, CalculatorViewModel calculator,
+        FilesViewModel files, NavigationService navigation)
     {
+        _files = files;
+        _navigation = navigation;
         Connection = connection;
         _operations = operations;
         _dialogs = dialogs;
@@ -411,6 +416,21 @@ public sealed partial class BackupsViewModel : ObservableObject
     }
 
     // --- Files -----------------------------------------------------------------------------------
+
+    /// <summary>Opens the backup on the Files page (F5): read programs, save or send single items.</summary>
+    [RelayCommand]
+    private async Task BrowseAsync(BackupListItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+        await _files.LoadAsync(item.File.Path);
+        if (_files.FilePath is not null)
+        {
+            _navigation.Navigate(AppPage.Files);
+        }
+    }
 
     [RelayCommand]
     private async Task ShowInFolderAsync(BackupListItem? item)

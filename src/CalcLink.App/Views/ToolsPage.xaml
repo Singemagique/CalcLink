@@ -204,6 +204,12 @@
                                             <FontIcon Glyph="&#xE712;" FontSize="14" />
                                             <Button.Flyout>
                                                 <MenuFlyout>
+                                                    <MenuFlyoutItem Text="Browse contents" Tag="{x:Bind}" Click="OnBrowseBackupClick"
+                                                                    Visibility="{x:Bind File.IsTiGroup}">
+                                                        <MenuFlyoutItem.Icon>
+                                                            <FontIcon Glyph="&#xE8B7;" />
+                                                        </MenuFlyoutItem.Icon>
+                                                    </MenuFlyoutItem>
                                                     <MenuFlyoutItem Text="Show in folder" Tag="{x:Bind}" Click="OnShowInFolderClick">
                                                         <MenuFlyoutItem.Icon>
                                                             <FontIcon Glyph="&#xE838;" />

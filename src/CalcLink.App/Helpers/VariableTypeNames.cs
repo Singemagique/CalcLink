@@ -57,12 +57,18 @@ public static class VariableTypeNames
     public static string Of(CalcVariable variable)
     {
         ArgumentNullException.ThrowIfNull(variable);
-        string code = variable.TypeName.Trim();
+        return Of(variable.TypeName, variable.IsApp);
+    }
+
+    /// <summary>Friendly name for a type code ("PRGM", "APPL", ...), e.g. from a file.</summary>
+    public static string Of(string typeCode, bool isApp)
+    {
+        string code = typeCode.Trim();
         if (s_names.TryGetValue(code, out var name))
         {
             return name;
         }
-        if (variable.IsApp)
+        if (isApp)
         {
             return "App";
         }

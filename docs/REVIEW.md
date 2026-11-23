@@ -162,7 +162,7 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. We used it in this session to open the About screen. Pair it with Live screen for a full remote control. | M |
 | F3 | **Hot-plug: auto-detect and reconnect** | Today the user must press Scan, and a replug needs a manual reconnect. Watch USB arrivals for VID 0451 (`CM_Register_Notification` / `DeviceWatcher`). | M |
 | F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
-| F5 | **Group-file explorer (replaces GFM)** | Open `.8xg`/`.tig`/`.89g` files, list and extract their contents, build new groups, and send selected items. libtifiles already has the helpers. | M |
+| F5 ✅ | **Group-file explorer (replaces GFM)** | Open `.8xg`/`.tig`/`.89g` files, list and extract their contents, build new groups, and send selected items. libtifiles already has the helpers. **Done for `.tig` and the TI-83/84 Plus family** (see below); 68k groups (`.89g`) not yet. | M |
 | F6 | **Picture and image viewer** | Show `.8xi`/`.8ci`/`.8ca` and Pic variables as images, and convert PNG to calculator images. | M |
 | F7 | **Explorer integration** | Double-click `.8xp`/`.8xk`/… to open in CalcLink. Add "Send to calculator" to the right-click menu. Allow drag onto the app's taskbar or tray. | S–M |
 | F8 | **Diagnostics view** | A runtime toggle for cable byte logging and a protocol event log (`ticalcs_calc_set_event_hook`), plus "Export diagnostics" for bug reports. This was how the SilverLink and WinUSB problem was solved. | M |
@@ -170,6 +170,20 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F10 | **Screen recording** | Record animated GIF or MP4 from Live view, add a scale option, and include the frame or bezel. | S–M |
 | F11 | **Multiple calculators / classroom mode** | Send the same files to every connected calculator at once. tilibs is handle-based, so it's feasible, but the current UI assumes one session. | L |
 | F12 | **Emulator link** (TCP cable to TilEm or CEmu) | Develop and test without hardware. | M |
+
+**F5 as built.** A **Files** page that works without a calculator (`FilesViewModel`, `CalcLink.Core/GroupFile.cs`).
+* **What it opens.**
+  * `.tig` files: unpacked with the F4 extractor. TI-83 Plus family variables are parsed, apps are listed as apps, and other models' files are listed as-is.
+  * `**TI83**` / `**TI83F*` files, with one variable or a group: each entry is written out as its own file.
+* **Names.** Lists, matrices, equations, strings, pictures and GDBs are named by tokens, so `TiVarFile` decodes them (`L₁`, `ʟAB`, `[B]`, `Str1`). The token's second byte may be 00, which was the first bug caught. System variables get the calculator's names (Window, RclWindw, TblSet).
+* **Actions.**
+  * **Open program** (uses F1).
+  * **Save to folder** copies the per-item files.
+  * **Save as group** writes a new `.8xg` with `TiVarFile.Write`, a byte-exact round trip that includes the checksum.
+  * **Send to calculator** uses the Calculator page's send path, so name clashes still ask first.
+* **Browse contents** opens a backup from Tools → Backups.
+* **Hardware-tested.** The TI-83 Plus backup listed 64 items (37 programs, 2 apps) with correct names, and INTEGRAL opened from it.
+* **Not tested through the UI:** Save to folder, Save as group and Send, because their pickers and the send step can't be automated here. The file writing is covered by unit tests.
 
 **F1 as built (viewing).** `CalcLink.Core/TiBasic.cs` holds the TI-83 / TI-83 Plus / TI-84 Plus token tables, a detokeniser and a longest-match tokeniser. `TiVarFile.cs` reads `**TI83**` / `**TI83F*` variable files.
 * **How the tables were checked.**
