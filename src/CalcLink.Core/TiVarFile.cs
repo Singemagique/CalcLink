@@ -136,6 +136,26 @@ public static class TiVarFile
     }
 
     /// <summary>
+    /// A TI-83 Plus / TI-84 Plus program file (.8xp) holding <paramref name="tokens"/> under
+    /// <paramref name="name"/> (see <see cref="TiBasic.IsValidProgramName"/>).
+    /// </summary>
+    public static byte[] WriteProgram(string name, ReadOnlySpan<byte> tokens, bool protectedProgram = false)
+    {
+        if (!TiBasic.IsValidProgramName(name))
+        {
+            throw new ArgumentException($"\"{name}\" isn't a valid program name.", nameof(name));
+        }
+        if (tokens.Length > ushort.MaxValue - 2)
+        {
+            throw new ArgumentException("The program is too large (64 KB at most).", nameof(tokens));
+        }
+        byte[] data = new byte[tokens.Length + 2];
+        BinaryPrimitives.WriteUInt16LittleEndian(data, (ushort)tokens.Length);
+        tokens.CopyTo(data.AsSpan(2));
+        return Write([new TiVarEntry(name, protectedProgram ? (byte)0x06 : (byte)0x05, false, data)]);
+    }
+
+    /// <summary>
     /// The name as the calculator shows it. Lists, matrices, equations, strings, pictures and GDBs
     /// are named by tokens (5D 00 = L₁); custom lists are ʟ followed by letters; others are letters,
     /// digits and θ.

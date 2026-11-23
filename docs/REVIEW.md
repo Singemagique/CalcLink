@@ -158,7 +158,7 @@ Ranked by value for students, teachers and hobbyists, against effort.
 
 | # | Feature | Why | Effort |
 |---|---|---|---|
-| F1 ✅ | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). **Viewing done** (see below); editing not started. | M (view) / L (edit) |
+| F1 ✅ | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). **Viewing and editing done** (see below). | M (view) / L (edit) |
 | F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. We used it in this session to open the About screen. Pair it with Live screen for a full remote control. | M |
 | F3 | **Hot-plug: auto-detect and reconnect** | Today the user must press Scan, and a replug needs a manual reconnect. Watch USB arrivals for VID 0451 (`CM_Register_Notification` / `DeviceWatcher`). | M |
 | F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
@@ -215,6 +215,18 @@ Ranked by value for students, teachers and hobbyists, against effort.
 * **Browse contents** opens a backup from Tools → Backups.
 * **Hardware-tested.** The TI-83 Plus backup listed 64 items (37 programs, 2 apps) with correct names, and INTEGRAL opened from it.
 * **Not tested through the UI:** Save to folder, Save as group and Send, because their pickers and the send step can't be automated here. The file writing is covered by unit tests.
+
+**F1 as built (editing).** A **Program editor** page (`EditorViewModel`, `ProgramEditorPage`), reached from the navigation or from **Edit** in the program viewer.
+* **Checking as you type.** `TiBasic.TryTokenize` returns where it failed, so errors say "Line 4, column 6: "½" isn't part of any TI-BASIC command or character", with a Go to error button. Save and Send stay disabled while the program is invalid or the name is.
+  * Names must follow `TiBasic.IsValidProgramName`: 1–8 characters, A–Z, 0–9 and θ, starting with a letter or θ.
+* **Typing help.** A symbol bar, plus typing shortcuts in the editor only: `->`, `<=`, `>=`.
+  * There's no `!=` shortcut, because `N!=120` is valid TI-BASIC (factorial, then equals).
+  * Plain `Tokenize` stays exact, so listings still round-trip.
+* **Placeholder safety.** Placeholders (`[BB D0]`) are read back only for codes the tables don't name. Before this, the matrix literal `[[12]]` would have been read as token 12.
+* **Look-alike warning.** A program that doesn't round-trip, such as ACT with its statistics variables, warns before saving, because saving would turn those into ordinary letters.
+* **Saving and sending.** `TiVarFile.WriteProgram` makes the `.8xp`. Send goes through the Calculator page's send path, so a name clash asks first.
+* **Tested in the simulator.** Edit opened QUADFORM. An invalid character was reported by line and column. A new program typed with shortcuts sent and read back with → and ≥.
+  * Bug found on the way: the editor's view model ran its first check before its text was set, which crashed the app when the page opened.
 
 **F1 as built (viewing).** `CalcLink.Core/TiBasic.cs` holds the TI-83 / TI-83 Plus / TI-84 Plus token tables, a detokeniser and a longest-match tokeniser. `TiVarFile.cs` reads `**TI83**` / `**TI83F*` variable files.
 * **How the tables were checked.**

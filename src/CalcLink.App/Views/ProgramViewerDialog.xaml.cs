@@ -47,6 +47,22 @@ public sealed partial class ProgramViewerDialog : ContentDialog
         AutomationProperties.SetName(Code, asm ? $"Hex dump of {listing.Name}" : $"Listing of {listing.Name}");
     }
 
+    /// <summary>Offer the Edit button (TI-BASIC only). After the dialog closes, check <see cref="EditRequested"/>.</summary>
+    public bool CanEdit
+    {
+        get => EditButton.Visibility == Visibility.Visible;
+        set => EditButton.Visibility = value && _listing.Kind == ProgramKind.Basic ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>The user chose Edit: the caller opens the program in the editor.</summary>
+    public bool EditRequested { get; private set; }
+
+    private void OnEditClick(object sender, RoutedEventArgs e)
+    {
+        EditRequested = true;
+        Hide();
+    }
+
     /// <summary>The text Copy and Save produce: the listing with Windows line endings.</summary>
     private string ExportText => _listing.Text.Replace("\n", "\r\n");
 

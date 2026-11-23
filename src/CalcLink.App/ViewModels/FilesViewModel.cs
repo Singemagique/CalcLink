@@ -175,8 +175,20 @@ public sealed partial class FilesViewModel : ObservableObject
         var item = _selection[0];
         var listing = ProgramListing.From(item.Name, tokens);
         string details = $"{item.TypeText} · from {FileName}";
-        await _dialogs.ShowAsync(new ProgramViewerDialog(listing, details, suggested =>
-            _pickers.PickSaveFileAsync(Path.GetFileNameWithoutExtension(suggested), [new("Text file (.txt)", [".txt"])])));
+        var viewer = new ProgramViewerDialog(listing, details, suggested =>
+            _pickers.PickSaveFileAsync(Path.GetFileNameWithoutExtension(suggested), [new("Text file (.txt)", [".txt"])]))
+        {
+            CanEdit = true,
+        };
+        await _dialogs.ShowAsync(viewer);
+        if (viewer.EditRequested)
+        {
+            var editor = App.GetService<EditorViewModel>();
+            if (await editor.LoadAsync(item.Name, tokens, item.Item.Entry?.TypeId == 0x06, $"From {FileName}"))
+            {
+                App.GetService<NavigationService>().Navigate(AppPage.Editor);
+            }
+        }
     }
 
     // --- Save -----------------------------------------------------------------------------------

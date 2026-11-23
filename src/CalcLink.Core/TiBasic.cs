@@ -64,10 +64,27 @@ public static class TiBasic
     /// separated by '\n' ('\r' is ignored). Throws <see cref="FormatException"/> for text that no
     /// token produces.
     /// </summary>
-    public static byte[] Tokenize(string text)
+    public static byte[] Tokenize(string text) =>
+        TryTokenize(text, typingShortcuts: false, out byte[] bytes, out int error)
+            ? bytes
+            : throw new FormatException($"No TI-BASIC token for '{text[error]}' at position {error}.");
+
+    /// <summary>
+    /// Like <see cref="Tokenize"/>, without throwing: on failure <paramref name="errorIndex"/> is the
+    /// position in <paramref name="text"/> that no token matches.
+    /// </summary>
+    /// <param name="text">The program text, one line per program line.</param>
+    /// <param name="bytes">The tokens (empty on failure).</param>
+    /// <param name="errorIndex">Where tokenizing failed, or -1.</param>
+    /// <param name="typingShortcuts">
+    /// Also accept <c>-&gt;</c> for →, <c>&lt;=</c> for ≤ and <c>&gt;=</c> for ≥, as PC editors do. Off by
+    /// default so a listing always turns back into exactly the tokens it came from. (No "!=" shortcut:
+    /// <c>N!=120</c> is factorial-then-equals, valid TI-BASIC.)
+    /// </param>
+    public static bool TryTokenize(string text, bool typingShortcuts, out byte[] bytes, out int errorIndex)
     {
         ArgumentNullException.ThrowIfNull(text);
-        var bytes = new List<byte>(text.Length);
+        var result = new List<byte>(text.Length);
         int i = 0;
         while (i < text.Length)
         {
@@ -76,9 +93,15 @@ public static class TiBasic
                 i++;
                 continue;
             }
-            if (TryPlaceholder(text, i, bytes, out int used))
+            if (TryPlaceholder(text, i, result, out int used))
             {
                 i += used;
+                continue;
+            }
+            if (typingShortcuts && i + 1 < text.Length && s_shortcuts.TryGetValue(text.Substring(i, 2), out byte shortcut))
+            {
+                result.Add(shortcut);
+                i += 2;
                 continue;
             }
             bool matched = false;
@@ -86,7 +109,7 @@ public static class TiBasic
             {
                 if (string.CompareOrdinal(text, i, t, 0, t.Length) == 0)
                 {
-                    bytes.AddRange(b);
+                    result.AddRange(b);
                     i += t.Length;
                     matched = true;
                     break;
@@ -94,13 +117,34 @@ public static class TiBasic
             }
             if (!matched)
             {
-                throw new FormatException($"No TI-BASIC token for '{text[i]}' at position {i}.");
+                bytes = [];
+                errorIndex = i;
+                return false;
             }
         }
-        return bytes.ToArray();
+        bytes = result.ToArray();
+        errorIndex = -1;
+        return true;
     }
 
-    // "[BB D0]" or "[26]": a token the tables don't name.
+    private static readonly Dictionary<string, byte> s_shortcuts = new(StringComparer.Ordinal)
+    {
+        ["->"] = 0x04, // →
+        ["<="] = 0x6D, // ≤
+        [">="] = 0x6E, // ≥
+    };
+
+    /// <summary>
+    /// True for a valid TI-83 / TI-84 Plus program name: 1–8 characters, A–Z, 0–9 and θ, starting
+    /// with a letter or θ.
+    /// </summary>
+    public static bool IsValidProgramName(string? name) =>
+        name is { Length: >= 1 and <= 8 }
+        && (char.IsAsciiLetterUpper(name[0]) || name[0] == 'θ')
+        && name.All(c => char.IsAsciiLetterUpper(c) || char.IsAsciiDigit(c) || c == 'θ');
+
+    // "[BB D0]" or "[26]": the form Detokenize uses for a token the tables don't name. Accepted only
+    // for codes that really are unnamed, so a matrix literal such as [[12]] isn't read as token 12.
     private static bool TryPlaceholder(string text, int i, List<byte> bytes, out int used)
     {
         used = 0;
@@ -116,6 +160,14 @@ public static class TiBasic
         string inner = text[(i + 1)..close];
         string[] parts = inner.Split(' ');
         if (parts.Length is not (1 or 2) || parts.Any(p => p.Length != 2 || !p.All(Uri.IsHexDigit)))
+        {
+            return false;
+        }
+        byte b1 = Convert.ToByte(parts[0], 16);
+        bool unnamed = parts.Length == 1
+            ? s_oneByte[b1] is null // an unnamed code, or a prefix cut off at the end
+            : IsPrefix(b1) && !(s_twoByte.TryGetValue(b1, out var page) && page.ContainsKey(Convert.ToByte(parts[1], 16)));
+        if (!unnamed)
         {
             return false;
         }

@@ -20,6 +20,11 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
   * **Read programs:** **Open program** (or double-click, or Enter) shows a TI-BASIC program as text, the way the calculator's editor shows it, with line numbers, Copy, and Save as `.txt`.
     * Assembly programs are labelled as such and shown in hexadecimal.
     * Works with the TI-83, TI-83 Plus and TI-84 Plus family, including the CE.
+* **Program editor.** Write a TI-BASIC program on the PC, or change one: **Edit** in the program viewer opens it here.
+  * Characters that aren't on the keyboard (→ ≤ ≥ ≠ ² √( θ π ʟ …) have buttons. You can also type `->`, `<=` and `>=`.
+  * The program is checked as you type, and anything that isn't TI-BASIC is pointed out by line and column.
+  * **Save as** writes an `.8xp` file, and **Send to calculator** sends it, asking first if a program with that name exists.
+  * A program whose characters can't be told apart (the statistic `e` and the letter `e` look the same) shows a warning before you save it.
 * **Screen.** Captures the calculator screen, or shows it live; you can copy it or save it as a PNG.
 * **Tools.** Shows calculator information: model, ID, product code, OS and boot versions, free memory, battery. It also sets the clock, makes ROM dumps, and sends OS upgrades.
 * **Backups.** **Back up now** saves the calculator to a dated file in `Documents\CalcLink Backups`, in a folder for each calculator; you can change the location in Settings.

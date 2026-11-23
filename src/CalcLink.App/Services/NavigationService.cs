@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Media.Animation;
 
 namespace CalcLink.App.Services;
 
-public enum AppPage { Devices, Calculator, Screen, Tools, Files, Settings }
+public enum AppPage { Devices, Calculator, Screen, Tools, Files, Editor, Settings }
 
 /// <summary>Navigates the shell's content frame by <see cref="AppPage"/> key.</summary>
 public sealed class NavigationService
@@ -16,6 +16,7 @@ public sealed class NavigationService
         [AppPage.Screen] = typeof(ScreenPage),
         [AppPage.Tools] = typeof(ToolsPage),
         [AppPage.Files] = typeof(FilesPage),
+        [AppPage.Editor] = typeof(ProgramEditorPage),
         [AppPage.Settings] = typeof(SettingsPage),
     };
 

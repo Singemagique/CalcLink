@@ -49,6 +49,7 @@ public partial class App : Application
         services.AddSingleton<CalculatorViewModel>();
         services.AddSingleton<ScreenViewModel>();
         services.AddSingleton<FilesViewModel>();
+        services.AddSingleton<EditorViewModel>();
         services.AddSingleton<BackupsViewModel>();
         services.AddSingleton<ToolsViewModel>();
         services.AddSingleton<SettingsViewModel>();

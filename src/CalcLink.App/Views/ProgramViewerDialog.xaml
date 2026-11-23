@@ -24,7 +24,21 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="DetailsText" Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" />
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="DetailsText" Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap" VerticalAlignment="Center" />
+            <Button x:Name="EditButton" Grid.Column="1" Visibility="Collapsed" Click="OnEditClick"
+                    AutomationProperties.Name="Edit"
+                    ToolTipService.ToolTip="Open this program in the program editor">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                    <TextBlock Text="Edit" />
+                </StackPanel>
+            </Button>
+        </Grid>
 
         <InfoBar x:Name="AssemblyInfo" Grid.Row="1" Severity="Informational" IsClosable="False"
                  Title="Assembly program" />

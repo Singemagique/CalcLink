@@ -751,6 +751,7 @@ public sealed partial class CalculatorViewModel : ObservableObject
             }
 
             ProgramListing listing;
+            byte[] programTokens;
             try
             {
                 var entry = TiVarFile.Read(files[0]).FirstOrDefault(e => e.IsProgram);
@@ -759,6 +760,7 @@ public sealed partial class CalculatorViewModel : ObservableObject
                     await _dialogs.ShowMessageAsync("Can't show this program", $"{v.Name} doesn't contain a program CalcLink can read.");
                     return;
                 }
+                programTokens = tokens;
                 listing = ProgramListing.From(v.Name, tokens);
             }
             catch (FormatException ex)
@@ -768,7 +770,17 @@ public sealed partial class CalculatorViewModel : ObservableObject
             }
 
             string details = VariableTypeNames.Of(v) + (v.Attribute == VariableAttribute.Archived ? " · in Archive" : " · in RAM");
-            await _dialogs.ShowAsync(new ProgramViewerDialog(listing, details, PickTextSavePathAsync));
+            var viewer = new ProgramViewerDialog(listing, details, PickTextSavePathAsync) { CanEdit = true };
+            await _dialogs.ShowAsync(viewer);
+            if (viewer.EditRequested)
+            {
+                // Resolved here, not injected: the editor depends on this view model (it sends through it).
+                var editor = App.GetService<EditorViewModel>();
+                if (await editor.LoadAsync(v.Name, programTokens, v.RawType == 0x06, $"From the {Connection.ModelName}"))
+                {
+                    App.GetService<NavigationService>().Navigate(AppPage.Editor);
+                }
+            }
         }
         finally
         {

@@ -63,6 +63,50 @@ public class TiBasicTests
     }
 
     [Fact]
+    public void Typing_shortcuts_only_when_asked()
+    {
+        Assert.True(TiBasic.TryTokenize("1->A\nIf A<=2 and A>=0", typingShortcuts: true, out var b, out _));
+        Assert.Equal("1→A\nIf A≤2 and A≥0", TiBasic.Detokenize(b));
+        Assert.Equal("1->A", TiBasic.Detokenize(TiBasic.Tokenize("1->A"))); // exact by default
+        Assert.Equal("N!=120", TiBasic.Detokenize(TiBasic.Tokenize("N!=120"))); // no "!=" shortcut ever
+    }
+
+    [Fact]
+    public void TryTokenize_reports_where_it_failed()
+    {
+        Assert.False(TiBasic.TryTokenize("Disp 1\nDisp ½", typingShortcuts: true, out _, out int at));
+        Assert.Equal(12, at);
+    }
+
+    [Fact]
+    public void Placeholders_only_stand_for_unnamed_codes() =>
+        // [[12]] is a matrix literal: brackets and digits, not token 12 (round().
+        Assert.Equal([0x06, 0x06, 0x31, 0x32, 0x07, 0x07], TiBasic.Tokenize("[[12]]"));
+
+    [Theory]
+    [InlineData("A", true)]
+    [InlineData("PROG1", true)]
+    [InlineData("θETA", true)]
+    [InlineData("ABCDEFGH", true)]
+    [InlineData("ABCDEFGHI", false)]
+    [InlineData("1ABC", false)]
+    [InlineData("abc", false)]
+    [InlineData("A B", false)]
+    [InlineData("", false)]
+    public void Program_names(string name, bool valid) => Assert.Equal(valid, TiBasic.IsValidProgramName(name));
+
+    [Fact]
+    public void WriteProgram_makes_a_readable_8xp()
+    {
+        byte[] tokens = TiBasic.Tokenize("Disp \"HI\"");
+        var e = Assert.Single(TiVarFile.Read(TiVarFile.WriteProgram("θHI", tokens, protectedProgram: true)));
+        Assert.Equal("θHI", e.Name);
+        Assert.Equal(0x06, e.TypeId);
+        Assert.Equal(tokens, e.ProgramTokens);
+        Assert.Throws<ArgumentException>(() => TiVarFile.WriteProgram("bad name", tokens));
+    }
+
+    [Fact]
     public void Tokenize_rejects_text_without_a_token() =>
         Assert.Throws<FormatException>(() => TiBasic.Tokenize("½"));
 
