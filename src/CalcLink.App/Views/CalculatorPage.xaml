@@ -205,6 +205,11 @@
             <AppBarButton Label="Run" Icon="Play" Command="{x:Bind ViewModel.RunCommand}"
                           Visibility="{x:Bind ViewModel.ShowRun, Mode=OneWay}"
                           ToolTipService.ToolTip="{x:Bind ViewModel.RunTip}" />
+            <AppBarButton Label="Open program" Command="{x:Bind ViewModel.OpenProgramCommand}"
+                          Visibility="{x:Bind ViewModel.ShowOpenProgram, Mode=OneWay}"
+                          ToolTipService.ToolTip="{x:Bind ViewModel.OpenProgramTip}">
+                <AppBarButton.Icon><FontIcon Glyph="&#xE943;" /></AppBarButton.Icon>
+            </AppBarButton>
         </CommandBar>
 
         <!-- View options in one row: Show filter · View (group / sort) · Find. -->
@@ -324,6 +329,7 @@
                       SelectionChanged="OnSelectionChanged"
                       RightTapped="OnListRightTapped"
                       KeyDown="OnListKeyDown"
+                      DoubleTapped="OnListDoubleTapped"
                       AutomationProperties.Name="Variables on the calculator">
                 <ListView.ContextFlyout>
                     <MenuFlyout>
@@ -352,6 +358,11 @@
                         <MenuFlyoutItem Text="Run" Command="{x:Bind ViewModel.RunCommand}"
                                         Visibility="{x:Bind ViewModel.ShowRun, Mode=OneWay}">
                             <MenuFlyoutItem.Icon><SymbolIcon Symbol="Play" /></MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem Text="Open program" Command="{x:Bind ViewModel.OpenProgramCommand}"
+                                        KeyboardAcceleratorTextOverride="Enter"
+                                        Visibility="{x:Bind ViewModel.ShowOpenProgram, Mode=OneWay}">
+                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE943;" /></MenuFlyoutItem.Icon>
                         </MenuFlyoutItem>
                         <MenuFlyoutSeparator />
                         <MenuFlyoutItem Text="Delete" Command="{x:Bind ViewModel.DeleteCommand}"

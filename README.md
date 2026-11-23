@@ -17,6 +17,9 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
 * **Calculator.** Lists variables, programs and apps with their type, size and location (RAM or Archive), and lets you filter, sort and search them.
   * **Send:** drag files onto the list or use **Send files**. CalcLink asks before replacing a variable that already exists, since the calculator would overwrite it without asking.
   * **Manage:** receive, delete, run, archive / move to RAM, create folders and rename.
+  * **Read programs:** **Open program** (or double-click, or Enter) shows a TI-BASIC program as text, the way the calculator's editor shows it, with line numbers, Copy, and Save as `.txt`.
+    * Assembly programs are labelled as such and shown in hexadecimal.
+    * Works with the TI-83, TI-83 Plus and TI-84 Plus family, including the CE.
 * **Screen.** Captures the calculator screen, or shows it live; you can copy it or save it as a PNG.
 * **Tools.** Shows calculator information: model, ID, product code, OS and boot versions, free memory, battery. It also sets the clock, makes ROM dumps, and sends OS upgrades.
 * **Backups.** **Back up now** saves the calculator to a dated file in `Documents\CalcLink Backups`, in a folder for each calculator; you can change the location in Settings.
@@ -99,7 +102,6 @@ If `calclink_native.dll` is missing, the app falls back to the simulator automat
 
 These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §3. No order is set yet.
 
-* **F1 Program viewer:** read TI-BASIC programs on the PC. Assembly programs are labelled as such.
 * **F5 Group-file explorer:** open `.8xg` / `.tig` / `.89g` files, extract items and build new groups.
 * **F6 Picture viewer:** show Pic variables and image files, and convert PNGs to calculator images.
 * **F7 Explorer integration:** double-click a calculator file, or right-click → Send to calculator.

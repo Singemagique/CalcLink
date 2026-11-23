@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CalcLink.App.Helpers;
 using CalcLink.App.Services;
+using CalcLink.App.Views;
 using CalcLink.Core;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -324,6 +325,19 @@ public sealed partial class CalculatorViewModel : ObservableObject
 
     private static bool IsRunnable(CalcVariable v) => v.IsApp || VariableList.CategoryOf(v) == VariableCategory.Programs;
 
+    /// <summary>
+    /// Open program (F1): the TI-BASIC token tables cover the TI-83, TI-83 Plus and TI-84 Plus family
+    /// (including the CE). The TI-73, 82, 85, 86 and 68k models use other tokens.
+    /// </summary>
+    public bool ShowOpenProgram => Connection.Session is { } s
+        && (s.Model == CalcModel.TI83 || (CalcIdentity.IsZ80IdFamily(s.Model) && s.Model != CalcModel.TI73));
+
+    /// <summary>Open program: exactly one program (not an app) is selected.</summary>
+    public bool CanOpenProgram => Idle && ShowOpenProgram && SingleSelection && Connection.Supports(CalcFeatures.Vars)
+        && !_selection[0].Variable.IsApp && _selection[0].Variable.RawType is 0x05 or 0x06;
+
+    public string OpenProgramTip => "Show the selected program as text (Enter)";
+
     public string RefreshTip => Connection.FeatureTip(CalcFeatures.DirList, "Refresh (F5)");
     public string SendTip => Connection.FeatureTip(Connection.Supports(CalcFeatures.Flash) ? CalcFeatures.Flash : CalcFeatures.Vars, "Send files to the calculator (Ctrl+O)");
     public string ReceiveTip => Connection.FeatureTip(CalcFeatures.Vars, "Receive the selected items to a folder you pick (Ctrl+S)");
@@ -374,6 +388,7 @@ public sealed partial class CalculatorViewModel : ObservableObject
         UnarchiveCommand.NotifyCanExecuteChanged();
         NewFolderCommand.NotifyCanExecuteChanged();
         RunCommand.NotifyCanExecuteChanged();
+        OpenProgramCommand.NotifyCanExecuteChanged();
     }
 
     /// <summary>Another page changed the calculator (restore): re-read the list next time this page shows.</summary>
@@ -709,6 +724,66 @@ public sealed partial class CalculatorViewModel : ObservableObject
         var v = _selection[0].Variable;
         await _operations.RunAsync($"Running {v.Name}", (_, ct) => session.ExecuteAsync(v, ct));
     }
+
+    /// <summary>Receives the selected program into a temporary folder and shows it (F1).</summary>
+    [RelayCommand(CanExecute = nameof(CanOpenProgram))]
+    private async Task OpenProgramAsync()
+    {
+        if (Connection.Session is not { } session || _selection.Count != 1)
+        {
+            return;
+        }
+        var v = _selection[0].Variable;
+        string temp = Path.Combine(Path.GetTempPath(), "CalcLink", "view", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var (outcome, files) = await _operations.RunAsync($"Reading {v.Name}",
+                (progress, ct) => session.ReceiveAsync([v], temp, progress, ct));
+            if (outcome != OperationOutcome.Succeeded || files is not { Count: > 0 })
+            {
+                return;
+            }
+
+            ProgramListing listing;
+            try
+            {
+                var entry = TiVarFile.Read(files[0]).FirstOrDefault(e => e.IsProgram);
+                if (entry?.ProgramTokens is not { } tokens)
+                {
+                    await _dialogs.ShowMessageAsync("Can't show this program", $"{v.Name} doesn't contain a program CalcLink can read.");
+                    return;
+                }
+                listing = ProgramListing.From(v.Name, tokens);
+            }
+            catch (FormatException ex)
+            {
+                await _dialogs.ShowMessageAsync("Can't show this program", $"{v.Name}: {ex.Message}");
+                return;
+            }
+
+            string details = VariableTypeNames.Of(v) + (v.Attribute == VariableAttribute.Archived ? " · in Archive" : " · in RAM");
+            await _dialogs.ShowAsync(new ProgramViewerDialog(listing, details, PickTextSavePathAsync));
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(temp))
+                {
+                    Directory.Delete(temp, recursive: true);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Temp files; Windows cleans %TEMP% eventually.
+            }
+        }
+    }
+
+    // Called while the viewer dialog is open: errors go to the viewer's status line, because a second
+    // ContentDialog would wait for the first one to close (DialogService shows one at a time).
+    private Task<string?> PickTextSavePathAsync(string suggestedName) =>
+        _pickers.PickSaveFileAsync(Path.GetFileNameWithoutExtension(suggestedName), [new("Text file (.txt)", [".txt"])]);
 
     /// <summary>
     /// Asks before sending files whose variables already exist on the calculator. Returns the paths to

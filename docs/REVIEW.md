@@ -158,7 +158,7 @@ Ranked by value for students, teachers and hobbyists, against effort.
 
 | # | Feature | Why | Effort |
 |---|---|---|---|
-| F1 | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). | M (view) / L (edit) |
+| F1 ✅ | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). **Viewing done** (see below); editing not started. | M (view) / L (edit) |
 | F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. We used it in this session to open the About screen. Pair it with Live screen for a full remote control. | M |
 | F3 | **Hot-plug: auto-detect and reconnect** | Today the user must press Scan, and a replug needs a manual reconnect. Watch USB arrivals for VID 0451 (`CM_Register_Notification` / `DeviceWatcher`). | M |
 | F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
@@ -170,6 +170,18 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | F10 | **Screen recording** | Record animated GIF or MP4 from Live view, add a scale option, and include the frame or bezel. | S–M |
 | F11 | **Multiple calculators / classroom mode** | Send the same files to every connected calculator at once. tilibs is handle-based, so it's feasible, but the current UI assumes one session. | L |
 | F12 | **Emulator link** (TCP cable to TilEm or CEmu) | Develop and test without hardware. | M |
+
+**F1 as built (viewing).** `CalcLink.Core/TiBasic.cs` holds the TI-83 / TI-83 Plus / TI-84 Plus token tables, a detokeniser and a longest-match tokeniser. `TiVarFile.cs` reads `**TI83**` / `**TI83F*` variable files.
+* **How the tables were checked.**
+  * Against TI's `ti83plus.inc`: all 256 one-byte tokens, the two-byte groups 5C–63, 7E and AA, and BB 00–CD.
+  * The EF group (TI-84 Plus OS 2.x) has only the well-known clock and statistics tokens. Anything else shows as `[BB D0]` instead of a guess.
+* **Tested on a real TI-83 Plus's 37 programs** (from a backup).
+  * The 25 TI-BASIC programs (about 2,700 lines) had no unknown tokens.
+  * 24 of 25 convert back to identical bytes. ACT uses the statistics variables `e`, `r`, `b`, `n`, which look the same as lowercase letters.
+  * All 12 assembly programs were recognised as assembly.
+* **The viewer.** Calculator page → **Open program** (Enter, double-click) receives the program to a temporary folder and shows it with line numbers, Copy and Save as `.txt`. Assembly gets a hex and ASCII dump.
+* **Simulator.** Its sample programs are now real tokenised BASIC.
+* **Hardware-tested.** On the TI-83 Plus, INTEGRAL (archived BASIC) opened in 3 s and PHOENIX (assembly) in 6 s.
 
 **F4 as built.** What decided the design: a test backup of a TI-83 Plus (OS 1.16) with 64 items over SilverLink.
 * **Which format.**

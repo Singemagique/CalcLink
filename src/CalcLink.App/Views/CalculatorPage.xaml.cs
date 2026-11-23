@@ -63,6 +63,21 @@ public sealed partial class CalculatorPage : Page
             e.Handled = true;
             ViewModel.DeleteCommand.Execute(null);
         }
+        else if (e.Key == VirtualKey.Enter && ViewModel.OpenProgramCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            ViewModel.OpenProgramCommand.Execute(null);
+        }
+    }
+
+    // Double-click a program: show it (F1).
+    private void OnListDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        if (ViewModel.OpenProgramCommand.CanExecute(null))
+        {
+            e.Handled = true;
+            ViewModel.OpenProgramCommand.Execute(null);
+        }
     }
 
     /// <summary>Ctrl+S: the SplitButton has no built-in accelerator invoke, so run its main action here.</summary>

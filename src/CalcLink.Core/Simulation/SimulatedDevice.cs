@@ -130,13 +130,27 @@ internal sealed class SimDevice
             {
                 Folder = "", Name = name, TypeName = t.TypeName, Extension = ext, RawType = t.RawType,
                 IsApp = t.IsApp, Attribute = t.IsApp ? VariableAttribute.Archived : attr,
-                Data = SimFiles.Payload(body, padTo),
+                Data = ext == "8xp" ? ProgramData(body, padTo) : SimFiles.Payload(body, padTo),
             });
         }
 
+        // Programs hold real tokens, so the program viewer has something to show: TI-BASIC source is
+        // tokenized; "ASM…" bodies become assembly (the CE's EF 7B marker plus filler of the given size).
+        static byte[] ProgramData(string body, int padTo)
+        {
+            if (!body.StartsWith("ASM", StringComparison.Ordinal))
+            {
+                return TiBasic.Tokenize(body);
+            }
+            byte[] data = SimFiles.Payload(body, Math.Max(padTo, 2));
+            data[0] = 0xEF;
+            data[1] = 0x7B;
+            return data;
+        }
+
         Add("QUADFORM", "8xp", "Prompt A,B,C\nB²-4AC→D\nIf D<0\nThen\nDisp \"NO REAL ROOTS\"\nElse\nDisp (-B+√(D))/(2A),(-B-√(D))/(2A)\nEnd");
-        Add("FACTOR", "8xp", "Input \"N=\",N\nFor(I,2,√(N))\nWhile not(fPart(N/I))\nDisp I\nN/I→N\nEnd\nEnd\nIf N>1:Disp N", padTo: 211);
-        Add("PHYSICS", "8xp", "ClrHome\nMenu(\"PHYSICS\",\"KINEMATICS\",A,\"FORCES\",B,\"ENERGY\",C)", VariableAttribute.Archived, padTo: 2_380);
+        Add("FACTOR", "8xp", "Input \"N=\",N\nFor(I,2,√(N))\nWhile not(fPart(N/I))\nDisp I\nN/I→N\nEnd\nEnd\nIf N>1:Disp N");
+        Add("PHYSICS", "8xp", "ClrHome\nMenu(\"PHYSICS\",\"KINEMATICS\",A,\"FORCES\",B,\"ENERGY\",C)\nLbl A\nDisp \"V=U+AT\",\"S=UT+AT²/2\"\nPause \nLbl B\nDisp \"F=MA\"\nPause \nLbl C\nDisp \"E=MC²\"", VariableAttribute.Archived);
         Add("TETRIS", "8xp", "ASM", VariableAttribute.Archived, padTo: 9_870);
         Add("CESIUM", "8xp", "ASM shell", VariableAttribute.Archived, padTo: 52_417);
         Add("SNAKE", "8xv", SimFiles.PythonAppVar("import ti_draw as d\nimport ti_system as s\nfrom random import randint\n\ndef main():\n  x, y = 160, 120\n  while not s.escape():\n    d.fill_rect(x, y, 8, 8)\n\nmain()\n"), VariableAttribute.Archived);
