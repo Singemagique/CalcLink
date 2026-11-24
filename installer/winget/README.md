@@ -56,7 +56,7 @@ The winget-pkgs bots then run validation and a test install in a sandbox VM. Thi
 
 * **Stable versions only.** Pre-releases such as `1.3.0-beta.1` are usually not accepted in the main package, so don't submit them.
 * **SmartScreen and antivirus.** Unsigned installers can be flagged during validation. Sign releases first (see `release.yml`).
-* **No driver installation.** CalcLink's installer installs no drivers, which keeps it eligible for unattended install. The USB driver step stays manual (see `docs/DRIVERS.md`).
+* **No driver installation.** CalcLink's installer installs no drivers, which keeps it eligible for unattended install. The USB driver is set up later, only when the user asks for it: with **Set up USB driver** in the app (one administrator prompt) or with Zadig (see `docs/DRIVERS.md`).
 * **Uninstall entry.** `ProductCode` is the Inno Setup uninstall key: the `AppId` from `installer/CalcLink.iss` plus `_is1`. If the AppId ever changes, upgrades break, so don't change it.
 
 Automating submission, for example with a `wingetcreate` step in `release.yml` using a fine-grained PAT stored as a secret, is possible but not set up. Do it only once the package identifier is final.

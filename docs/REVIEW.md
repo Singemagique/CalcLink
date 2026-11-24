@@ -1,6 +1,6 @@
 # CalcLink review: code, UI/UX and next features (2026-11-21)
 
-**Scope.** This review covers commit `fe0e335` plus the uncommitted ID / product-code work.
+**Scope.** This review covers commit `fe0e335` plus the uncommitted ID / product-code work. Later notes record what was fixed or built since; §4 has the current status.
 
 **Sources.**
 * A code review of the native shim, Core and App.
@@ -159,7 +159,7 @@ Ranked by value for students, teachers and hobbyists, against effort.
 | # | Feature | Why | Effort |
 |---|---|---|---|
 | F1 ✅ | **Program viewer (TI-BASIC detokeniser)** | Read programs on the PC, with no need to send them back or squint at the calculator. Later this could grow into editing and tokenising so programs can be written on the PC. tilibs doesn't detokenise, so this needs a token table (83+/84+ first). **Viewing and editing done** (see below). | M (view) / L (edit) |
-| F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. We used it in this session to open the About screen. Pair it with Live screen for a full remote control. | M |
+| F2 | **Remote keypad window** | Core already has `SendKeyAsync`, and tilibs has per-model key tables. It was used during testing to open the About screen. Pair it with Live screen for a full remote control. | M |
 | F3 | **Hot-plug: auto-detect and reconnect** | Today the user must press Scan, and a replug needs a manual reconnect. Watch USB arrivals for VID 0451 (`CM_Register_Notification` / `DeviceWatcher`). | M |
 | F4 ✅ | **One-click dated backups and restore** | "Back up now" to a default folder named by date, a list of past backups, and Restore. This is a common classroom need. **Done** (see below). | S–M |
 | F5 ✅ | **Group-file explorer (replaces GFM)** | Open `.8xg`/`.tig`/`.89g` files, list and extract their contents, build new groups, and send selected items. libtifiles already has the helpers. **Done for `.tig` and the TI-83/84 Plus family** (see below); 68k groups (`.89g`) not yet. | M |
@@ -259,19 +259,10 @@ Ranked by value for students, teachers and hobbyists, against effort.
   * The restore dialog listed all 64 as "On calculator", with nothing pre-selected.
   * Restoring `A` (RAM) and `AVALANCH` (archived) replaced both with byte-identical contents. `AVALANCH` came back in RAM, and CalcLink listed it to be archived again.
 
-## 4. Suggested order
+## 4. Where things stand (2026-11-22)
 
-1. **Data-safety fixes:** B1, B2, B3 and B9, then B5 and B10.
-2. **UX:** hide unsupported features, the adaptive layout, the troubleshooting empty state, and transfer progress.
-3. **Features:** F2 (cheap, since the code exists), F4 and F1, then F3.
-
-## Appendix: blue screen on 2026-11-21 23:17
-
-**What happened.**
-* Stop code `0x3B` SYSTEM_SERVICE_EXCEPTION (`c0000005`, an access violation in kernel code).
-* CalcLink was probably still connected over SilverLink/WinUSB, idle after the screenshots, when it happened.
-* No USB or driver errors were logged beforehand.
-
-**Is CalcLink to blame?** A user-mode program like CalcLink can't cause a 0x3B on its own; a driver has to fault. B5 is a user-mode race, so it can't explain the crash by itself either.
-
-**Next step.** Identify the faulting driver by opening `C:\Windows\Minidump\112126-26328-01.dmp` in WinDbg as administrator and running `!analyze -v`. Until it's identified, treat the WinUSB/SilverLink path as a suspect.
+* **Bugs:** B1–B10 are all fixed (§1).
+* **UI/UX:** every item in §2 is fixed.
+* **Features done:** F1 (viewer and editor), F4, F5 (except 68k groups), F7 (except the taskbar drop) and F9.
+* **Still planned:** F6 picture viewer and F12 emulator link, plus the rest of F5 and F7.
+* **Not planned for now:** F2, F3, F8, F10 and F11.

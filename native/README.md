@@ -3,7 +3,23 @@
 `calclink_native.dll` exposes the flat C ABI in [`include/calclink.h`](include/calclink.h)
 (P/Invoked by `CalcLink.Core`). It wraps [tilibs](https://github.com/debrouxl/tilibs)
 (libticables2, libticalcs2, libtifiles2, libticonv), which are **linked statically into the DLL**.
-`clprobe.exe` is a small console tool for hardware smoke tests.
+`clprobe.exe` is a small console tool for hardware smoke tests, and `calclink-driver.exe` is the
+USB driver setup helper. The current ABI version is 3 (`CL_ABI_VERSION`); Core won't use a DLL
+with any other version and falls back to the simulator.
+
+## clprobe
+
+```
+clprobe [--list] [--model N] [--key CODE]... [--screen FILE.bmp] [--backup FILE]...
+        [--recv NAME DIR]... [--send FILE]... [--attr NAME N]... [--delete NAME]...
+clprobe --file-vars FILE
+```
+
+With no options it opens the first calculator found and prints its info and variable list.
+`--list` only lists devices; `--model N` forces a tilibs model number; the other options run
+an action on the opened calculator and can be repeated.
+`--file-vars` lists the variables inside a file without any device. Set `CALCLINK_LOG=1` to
+see tilibs' log messages, which the DLL otherwise drops.
 
 The DLL is named `calclink_native.dll`, not `calclink.dll`: the managed app assembly is
 `CalcLink.dll`, and Windows file names are case-insensitive. The header stays `calclink.h`
@@ -27,7 +43,7 @@ You need:
 ```powershell
 .\build.ps1                                     # win-x64-release
 .\build.ps1 -Preset win-arm64-release
-.\build.ps1 -TilibsSourceDir I:\Claude\tilp\tilibs
+.\build.ps1 -TilibsSourceDir C:\src\tilibs
 ```
 
 To build by hand instead, use a **Developer PowerShell for VS**. Use an x64 prompt for `win-x64-*`. For ARM64, use an ARM64 or x64_arm64 developer prompt, e.g. `Enter-VsDevShell -Arch arm64 -HostArch amd64`. Make sure the `cmake` on your PATH is 3.25+:
@@ -46,7 +62,7 @@ Presets: `win-x64-release`, `win-x64-debug`, `win-arm64-release` (Ninja, vcpkg t
 To build against a local tilibs checkout instead of fetching it:
 
 ```powershell
-cmake --preset win-x64-release -DTILIBS_SOURCE_DIR=I:/Claude/tilp/tilibs
+cmake --preset win-x64-release -DTILIBS_SOURCE_DIR=C:/src/tilibs
 ```
 
 Other cache options: `CALCLINK_TILIBS_NLS` (default OFF: tilibs messages stay English and no

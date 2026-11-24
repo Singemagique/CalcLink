@@ -105,7 +105,7 @@ calclink-cli screenshot FILE.png         save the screen (--scale N enlarges it)
 calclink-cli view NAME|FILE              print a program as text
 ```
 
-* **Options:** `--device N` picks a calculator when several are connected. `--simulator` uses the simulated ones.
+* **Options:** `--device N` picks a calculator when several are connected, `--timeout SECONDS` sets the link timeout (0.5 to 60), and `--simulator` uses the simulated calculators.
 * **Exit codes:** 0 done, 1 failed, 2 bad command line, 3 no calculator found.
 * **Diagnostics:** set `CALCLINK_LOG=1` to see the link library's diagnostic messages.
 * **Name clashes:** `send` won't overwrite a variable unless you say so (`--replace`), because the calculator itself would replace it without asking.
@@ -117,16 +117,18 @@ calclink-cli view NAME|FILE              print a program as text
 | `src/CalcLink.App` | WinUI 3 desktop app (unpackaged, self-contained Windows App SDK) |
 | `src/CalcLink.Core` | Backend-agnostic contract (`Abstractions/`), native P/Invoke backend, simulator |
 | `src/CalcLink.Cli` | `calclink-cli.exe`, the command-line tool (uses CalcLink.Core) |
-| `tests/CalcLink.Core.Tests` | xUnit tests: simulator, interop struct layout, factory, calculator IDs, name-clash rules and safe file writes |
+| `tests/CalcLink.Core.Tests` | xUnit tests (no hardware needed): simulator, interop struct layout, TI-BASIC tokens, variable and group files, backups, launch arguments, PNG output, USB driver parsing, name-clash rules and safe file writes |
 | `native/` | `calclink_native.dll` C shim over tilibs (CMake + vcpkg presets), the `clprobe` command-line hardware test tool, and the `calclink-driver` USB driver setup helper |
 | `installer/` | Inno Setup script (per-user, x64/arm64) and winget manifest templates |
 | `docs/` | [Building](docs/BUILDING.md), [Architecture](docs/ARCHITECTURE.md), [USB drivers](docs/DRIVERS.md), [Code and UI review](docs/REVIEW.md) |
+| `SECURITY.md`, `THIRD-PARTY-NOTICES.md` | [How to report a vulnerability](SECURITY.md), and [the third-party components that ship with CalcLink](THIRD-PARTY-NOTICES.md) |
 
 ## Quick start (no hardware)
 
 ```powershell
 dotnet test tests/CalcLink.Core.Tests
 dotnet run --project src/CalcLink.App -p:Platform=x64
+dotnet run --project src/CalcLink.Cli -- list --simulator --device 1
 ```
 
 If `calclink_native.dll` is missing, the app falls back to the simulator automatically. You can also choose the backend in **Settings**; **Restart now** applies the change.
@@ -138,11 +140,12 @@ These features are planned; the IDs refer to [docs/REVIEW.md](docs/REVIEW.md) §
 * **F5, the rest:** TI-89 / TI-92 group files (`.89g`, `.9xg`), which the Files page can't open yet.
 * **F6 Picture viewer:** show Pic variables and image files, and convert PNGs to calculator images.
 * **F12 Emulator link:** connect to an emulator instead of a real calculator.
+* **F7, the rest:** drop files on CalcLink's taskbar button to send them.
 
 Every bug from the code review ([docs/REVIEW.md](docs/REVIEW.md) §1, B1–B10) is fixed.
 
 ## License
 
-GPL-2.0-or-later (see [LICENSE](LICENSE)). The license is required because the tilibs libraries are GPLv2. The .NET runtime and Windows App SDK are MIT-licensed.
+GPL-2.0-or-later (see [LICENSE](LICENSE)). The license is required because the tilibs libraries are GPLv2. The libraries and runtimes CalcLink ships with, and their licenses, are listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 CalcLink is built on tilibs by Romain Liévin, Kevin Kofler, Lionel Debroux and contributors. "TI", "TI-84 Plus", "TI-Nspire" and related names are trademarks of Texas Instruments; CalcLink is not affiliated with Texas Instruments.

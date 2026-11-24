@@ -236,6 +236,20 @@ install(TARGETS ${_install_targets}
 
 install(FILES include/calclink.h DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
 
+# License texts of everything linked into or shipped next to calclink_native.dll, for
+# THIRD-PARTY-NOTICES.md. Packaging copies bin/licenses/ into the app folder.
+install(FILES "${TILIBS_DIR}/libticalcs/trunk/COPYING"
+    DESTINATION "${CMAKE_INSTALL_BINDIR}/licenses" RENAME "tilibs.txt")
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+    foreach(_port glib gettext-libintl libiconv libusb pcre2 zlib libarchive)
+        set(_copyright "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share/${_port}/copyright")
+        if(NOT EXISTS "${_copyright}")
+            message(FATAL_ERROR "No license file for the vcpkg port ${_port} at ${_copyright}")
+        endif()
+        install(FILES "${_copyright}" DESTINATION "${CMAKE_INSTALL_BINDIR}/licenses" RENAME "${_port}.txt")
+    endforeach()
+endif()
+
 # VC++ runtime (vcruntime140*.dll, msvcp140*.dll, ...) next to the DLL, for an
 # app-local deployment (system32 copies are excluded from RUNTIME_DEPENDENCIES above).
 set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")

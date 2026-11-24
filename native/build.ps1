@@ -16,7 +16,7 @@
 .EXAMPLE
     .\build.ps1 -Preset win-arm64-release -VcpkgRoot D:\tools\vcpkg
 .EXAMPLE
-    .\build.ps1 -TilibsSourceDir I:\Claude\tilp\tilibs   # use a local tilibs checkout instead of fetching it
+    .\build.ps1 -TilibsSourceDir C:\src\tilibs   # use a local tilibs checkout instead of fetching it
 #>
 [CmdletBinding()]
 param(

@@ -132,4 +132,6 @@ WinUSB is part of Windows on ARM, and libusb-1.0 supports ARM64, so the CalcLink
   * `clprobe --list` lists the USB devices tilibs detects.
   * `clprobe` also opens the first device and prints the calculator's version and variable list.
   * `clprobe --model N` opens it as tilibs model *N* regardless of what the probe found (4 = TI-83 Plus, 5 = TI-84 Plus, 9 = TI-89 Titanium).
-* **Reporting a USB problem.** Please include the calculator model and OS version, the PID from Device Manager, the driver name and version (Properties → Driver), whether TI Connect is installed, and the output of `clprobe`.
+* **`calclink-cli.exe`**, next to `CalcLink.exe`: `calclink-cli devices` and `calclink-cli info` check the same things from the app folder.
+* **Link library messages.** Set `CALCLINK_LOG=1` before running `clprobe` or `calclink-cli` (`$env:CALCLINK_LOG = 1` in PowerShell) to see tilibs' own log, which is hidden otherwise.
+* **Reporting a USB problem.** Please include the calculator model and OS version, the PID from Device Manager, the driver name and version (Properties → Driver), whether TI Connect is installed, and the output of `clprobe` with `CALCLINK_LOG=1`.

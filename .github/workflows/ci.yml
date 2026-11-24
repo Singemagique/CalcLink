@@ -1,4 +1,4 @@
-# CalcLink CI: .NET tests, native backend (calclink.dll over tilibs), portable app builds.
+# CalcLink CI: .NET tests, native backend (calclink_native.dll over tilibs), portable app builds.
 #
 # Also used as a reusable workflow by release.yml (workflow_call). The release passes the
 # version from the tag; plain CI derives it from Directory.Build.props.
@@ -151,13 +151,21 @@ jobs:
         run: |
           $root = $env:VCPKG_INSTALLATION_ROOT
           if (-not $root -or -not (Test-Path "$root\vcpkg.exe")) { throw 'VCPKG_INSTALLATION_ROOT not set or vcpkg.exe missing on this runner image.' }
-          # The manifest's builtin-baseline must exist in this clone, which the image refreshes
-          # only weekly. Fetching makes newer baselines resolvable; it doesn't change the checkout.
+          # vcpkg reads port versions from its working tree, so the image's copy (refreshed only
+          # weekly) can lack versions the manifest's builtin-baseline asks for, e.g.
+          # "vcpkg-tool-meson@1.12.1#2 not found". Check the runner's clone out at the baseline
+          # and bootstrap the vcpkg tool that commit expects. (The runner is throwaway.)
+          $baseline = (Get-Content native/vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
+          if (-not $baseline) { throw 'native/vcpkg.json has no builtin-baseline.' }
           if ((git -C $root rev-parse --is-shallow-repository) -eq 'true') {
             git -C $root fetch --quiet --unshallow origin
           } else {
             git -C $root fetch --quiet origin
           }
+          git -C $root -c advice.detachedHead=false checkout --quiet --force $baseline
+          if ($LASTEXITCODE -ne 0) { throw "Could not check out vcpkg at $baseline." }
+          & "$root\bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE -ne 0) { throw 'bootstrap-vcpkg failed.' }
           $cache = Join-Path $env:RUNNER_TEMP 'vcpkg-bincache'
           New-Item -ItemType Directory -Force $cache | Out-Null
           "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
@@ -201,8 +209,10 @@ jobs:
         working-directory: native/out/install/${{ matrix.preset }}/bin
         run: |
           Get-ChildItem | Format-Table Name, Length -AutoSize | Out-String | Write-Host
-          if (-not (Test-Path calclink.dll)) { throw 'calclink.dll missing from the install dir' }
-          # Every non-system import of calclink.dll should be shipped alongside it.
+          foreach ($f in 'calclink_native.dll', 'calclink-driver.exe', 'licenses\tilibs.txt') {
+            if (-not (Test-Path $f)) { throw "$f missing from the install dir" }
+          }
+          # Every non-system import of calclink_native.dll should be shipped alongside it.
           $system = '^(api-ms-|ext-ms-|kernel32|user32|advapi32|ole32|oleaut32|shell32|shlwapi|ws2_32|setupapi|cfgmgr32|winusb|bcrypt|crypt32|iphlpapi|dnsapi|secur32|ntdll|ucrtbase|msvcrt|rpcrt4|winmm|version|comdlg32|gdi32|hid|userenv|dbghelp)'
           $missing = @()
           foreach ($dll in Get-ChildItem *.dll) {

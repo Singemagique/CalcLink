@@ -4,8 +4,8 @@ CalcLink has two halves, built with different toolchains:
 
 | Part | Path | Toolchain | Output |
 |---|---|---|---|
-| Native backend | `native/` | CMake presets + Ninja + MSVC + vcpkg | `calclink_native.dll`, tilibs/GLib/libusb DLLs, `clprobe.exe` |
-| Managed app | `src/`, `tests/` | .NET 10 SDK | `CalcLink.exe` (WinUI 3, self-contained) |
+| Native backend | `native/` | CMake presets + Ninja + MSVC + vcpkg | `calclink_native.dll`, tilibs/GLib/libusb DLLs, `clprobe.exe`, `calclink-driver.exe` |
+| Managed app and CLI | `src/`, `tests/` | .NET 10 SDK | `CalcLink.exe` (WinUI 3, self-contained), `calclink-cli.exe` |
 
 You can build and run the app **without** the native half. It then uses the built-in simulator.
 
@@ -39,10 +39,10 @@ The native build gets tilibs' dependencies from vcpkg in manifest mode: GLib, ge
 **Easiest: run the build script from any PowerShell window.** It finds Visual Studio, enters the right developer environment, picks a CMake ≥ 3.25 over older ones on your PATH, and finds Ninja and vcpkg. If vcpkg isn't bootstrapped yet, it bootstraps it. It then configures, builds and installs the preset.
 
 ```powershell
-I:\path\to\CalcLink\native\build.ps1                                   # win-x64-release
-I:\path\to\CalcLink\native\build.ps1 -Preset win-arm64-release
-I:\path\to\CalcLink\native\build.ps1 -TilibsSourceDir D:\src\tilibs    # use a local tilibs checkout
-I:\path\to\CalcLink\native\build.ps1 -Clean                            # wipe the build dir first
+C:\src\CalcLink\native\build.ps1                                   # win-x64-release
+C:\src\CalcLink\native\build.ps1 -Preset win-arm64-release
+C:\src\CalcLink\native\build.ps1 -TilibsSourceDir C:\src\tilibs    # use a local tilibs checkout
+C:\src\CalcLink\native\build.ps1 -Clean                            # wipe the build dir first
 ```
 
 Without `VCPKG_ROOT` set, the script looks for vcpkg in `C:\src\vcpkg`, `C:\vcpkg`, `%USERPROFILE%\vcpkg` and Visual Studio's bundled copy. If a tool is missing, it says so and prints the install command. On a fresh machine, the minimum setup is:
@@ -88,7 +88,11 @@ The output goes to `native/out/install/<preset>/bin/`:
 * `calclink_native.dll`, with tilibs (ticables2, ticalcs2, tifiles2, ticonv) linked in statically;
 * the vcpkg runtime DLLs it needs: GLib, PCRE2, intl, iconv, libarchive, zlib, and `libusb-1.0.dll`;
 * the VC++ runtime DLLs (`vcruntime140*.dll`, `msvcp140*.dll`, `concrt140.dll`);
-* `clprobe.exe`, a console smoke test for real hardware. It prints the library versions and the USB devices it finds, and if a calculator is present it opens it and prints its info and variable list.
+* `clprobe.exe`, a console smoke test for real hardware. It prints the library versions and the USB devices it finds, and if a calculator is present it opens it and prints its info and variable list (options in `native/README.md`);
+* `calclink-driver.exe`, the "Set up USB driver" helper (see [DRIVERS.md](DRIVERS.md) §3);
+* `licenses\`, the license texts of tilibs and the vcpkg libraries above, for [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).
+
+tilibs is fetched at a pinned commit, or taken from `-TilibsSourceDir`, and patched by the two files in `native/patches/`: the libusb-1.0 backend for Windows, and UTF-8 file paths for ROM dumps and certificates. A fetched tilibs gets both automatically. A local checkout must already have them applied, and configure stops with a message if it doesn't. `.gitattributes` keeps the patch files byte-exact; regenerate them with `git diff --output=<file>`, not by redirecting PowerShell output, which changes the line endings.
 
 The build trees in `native/out/build/` and the install trees in `native/out/install/` are git-ignored.
 
@@ -98,7 +102,7 @@ The build trees in `native/out/build/` and the install trees in `native/out/inst
 dotnet test tests/CalcLink.Core.Tests
 ```
 
-The tests use the simulator and the interop definitions only. They need neither hardware nor `calclink_native.dll`. To get a TRX report like CI's:
+The tests (about 230) use the simulator, the interop definitions and the managed file formats only. They need neither hardware nor `calclink_native.dll`. To get a TRX report like CI's:
 
 ```powershell
 dotnet test tests/CalcLink.Core.Tests -c Release --logger "trx;LogFileName=CalcLink.Core.Tests.trx" --results-directory TestResults
@@ -113,6 +117,15 @@ dotnet run --project src/CalcLink.App -p:Platform=x64
 ```
 
 If `native\out\install\win-x64-release\bin\calclink_native.dll` exists, the app build copies that folder into `native\win-x64\` next to `CalcLink.exe`, and the app uses the real tilibs backend. The Devices page shows "Backend: tilibs (…)". Otherwise the app falls back to the simulator.
+
+The command-line tool runs the same way; arguments go after `--`:
+
+```powershell
+dotnet run --project src/CalcLink.Cli -- devices
+dotnet run --project src/CalcLink.Cli -- list --simulator --device 1
+```
+
+Set `$env:CALCLINK_LOG = 1` to see tilibs' own log messages in the console, which the native layer otherwise drops.
 
 Other ways to choose the native files:
 * `-p:CalcLinkNativeBin=<dir>` selects which native folder the build copies.
@@ -131,7 +144,7 @@ dotnet publish src/CalcLink.App -c Release -r win-x64   -p:Platform=x64   -o art
 dotnet publish src/CalcLink.App -c Release -r win-arm64 -p:Platform=ARM64 -o artifacts\publish\win-arm64
 ```
 
-The project is **unpackaged and self-contained**: `WindowsPackageType=None`, `SelfContained`, `WindowsAppSDKSelfContained`. The output folder runs on a clean PC with no .NET or Windows App SDK runtime installed. x64 → ARM64 cross-publishing works from any machine.
+The project is **unpackaged and self-contained**: `WindowsPackageType=None`, `SelfContained`, `WindowsAppSDKSelfContained`. The output folder runs on a clean PC with no .NET or Windows App SDK runtime installed. x64 → ARM64 cross-publishing works from any machine. `src/CalcLink.Cli` publishes the same way; `Build-Portable.ps1` (section 6) puts both into one folder.
 
 ## 6. Assembling a portable build
 
@@ -148,7 +161,7 @@ pwsh installer/Build-Portable.ps1 -Rid win-arm64
 
 | Output | What it is |
 |---|---|
-| `artifacts\stage\<rid>\CalcLink\` | The app folder. `CalcLink.exe` plus `native\<rid>\` (calclink_native.dll and its DLLs), `LICENSE.txt` and `docs\DRIVERS.md` |
+| `artifacts\stage\<rid>\CalcLink\` | The app folder: `CalcLink.exe`, `calclink-cli.exe`, `native\<rid>\` (calclink_native.dll and its DLLs, `calclink-driver.exe`, `clprobe.exe`), `LICENSE.txt`, `THIRD-PARTY-NOTICES.md`, `licenses\` (third-party license texts) and `docs\DRIVERS.md` |
 | `artifacts\dist\CalcLink-<version>-<rid>-portable.zip` | The zip of that folder |
 | `artifacts\dist\CalcLink-<version>-<rid>-symbols.zip` | All `.pdb` files, kept out of the shipped tree |
 
@@ -158,6 +171,8 @@ The native DLLs live in `native\<rid>\` rather than next to `CalcLink.exe`, for 
 * **A tidy app root, with no name clashes.** The GLib, iconv and libusb DLLs stay out of the app root, so they can never collide with a file from the .NET publish output. That is also why the native library is called `calclink_native.dll`: a plain `calclink.dll` would clash with the managed `CalcLink.dll`, because Windows file names are case-insensitive.
 
 CalcLink.Core looks in `native\<rid>\` automatically. With `-NativeLayout Flat`, the script copies the DLLs next to the exe instead and refuses to overwrite anything.
+
+The app and the CLI are published separately and merged into one folder. Both are self-contained on the same .NET runtime, so the files they share must be identical, and the script stops if they aren't. During this publish the projects' own development-time copy of the native files is switched off (`CalcLinkNativeBin` points at an empty folder), so only the script copies them.
 
 ## 7. Building the installer
 
@@ -178,8 +193,8 @@ Optional defines:
 
 How the installer behaves:
 * **Per-user by default.** It installs to `%LOCALAPPDATA%\Programs\CalcLink` with no UAC prompt. The first page offers "Install for all users", which elevates and installs to `Program Files`.
-* **File associations.** An optional task adds CalcLink to **Open with** for TI file types, under `HKCU\Software\Classes` (HKLM for all-users). It never replaces the default handler.
-* **No system changes.** There are no drivers, shared DLLs, `system32` files or environment variables.
+* **File associations.** An optional task adds CalcLink to **Open with** for TI file types, and a **Send to calculator (CalcLink)** right-click command (`SystemFileAssociations\.<ext>\shell\CalcLink.Send`, which runs `CalcLink.exe --send "%1"`), under `HKCU\Software\Classes` (HKLM for all-users). It never replaces the default handler.
+* **No system changes.** There are no drivers, shared DLLs, `system32` files or environment variables. `calclink-driver.exe` is installed with the app, but it runs only when the user clicks **Set up USB driver** and approves the administrator prompt.
 * **Uninstall** removes everything it installed and leaves `%LOCALAPPDATA%\CalcLink` (settings) in place.
 * **Silent install.** `CalcLink-<ver>-win-x64-setup.exe /VERYSILENT /CURRENTUSER` (or `/ALLUSERS`).
 
@@ -219,3 +234,7 @@ How the installer behaves:
 | ARM64 configure picks x64 tools | The dev shell was started with the wrong `-Arch`. Open a new terminal and use `-Arch arm64 -HostArch amd64`. |
 | App runs but says the native backend is unavailable | The architecture doesn't match (x64 app with ARM64 DLL or vice versa), or the DLLs aren't in `native\<rid>\`, or `CALCLINK_NATIVE_PATH` is wrong. The message includes the reason, for example an ABI version mismatch. |
 | Build-Portable: "collides with an existing file" | A native DLL has the same name as a published file. Keep the default `-NativeLayout Subfolder`. |
+| Build-Portable: "calclink-cli and the app both ship …, with different contents" | The two projects resolved different runtime or package versions. Restore both with the same SDK and rerun. |
+| Configure: "The tilibs checkout at … lacks the … patch" | A local `-TilibsSourceDir` checkout needs both patches applied. Run the `git apply` command the message prints. |
+| Configure: a fetched tilibs fails to apply a patch | A patch file was changed, often its line endings. `git diff native/patches/` should show nothing; if it does, `git checkout` the file. |
+| App fails at start with a `XamlParseException` that the code doesn't explain | Stale incremental XAML output. Rebuild with `--no-incremental`, or delete `src/CalcLink.App/obj` and `bin`. |

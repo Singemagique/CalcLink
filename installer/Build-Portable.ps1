@@ -10,7 +10,8 @@
             CalcLink.exe, CalcLink.dll, ... (dotnet publish output, self-contained)
             calclink-cli.exe (command-line tool, same runtime)
             native\<Rid>\calclink_native.dll, tilibs/glib/libusb DLLs, clprobe.exe, calclink-driver.exe
-            LICENSE.txt
+            LICENSE.txt, THIRD-PARTY-NOTICES.md
+            licenses\ (license texts of tilibs and the vcpkg libraries, from the native install)
             docs\DRIVERS.md
     and the outputs are:
         <OutDir>\dist\CalcLink-<Version>-<Rid>-portable.zip
@@ -141,6 +142,14 @@ if (-not $SkipPublish) {
             }
             Copy-Item $f.FullName $dest
         }
+        # Third-party license texts (installed by native/CMakeLists.txt) go to licenses\ in the app root.
+        $licenses = Join-Path $NativeBin 'licenses'
+        if (Test-Path $licenses) {
+            Copy-Item $licenses (Join-Path $Stage 'licenses') -Recurse -Force
+        }
+        else {
+            Write-Warning "No licenses folder in $NativeBin; rebuild native/ to include the third-party license texts."
+        }
         Write-Host "Native backend copied from $NativeBin to $nativeDest"
     }
     elseif ($AllowMissingNative) {
@@ -152,6 +161,7 @@ if (-not $SkipPublish) {
 
     # 3. License and the driver guide (the installer links to it as well).
     Copy-Item (Join-Path $RepoRoot 'LICENSE') (Join-Path $Stage 'LICENSE.txt')
+    Copy-Item (Join-Path $RepoRoot 'THIRD-PARTY-NOTICES.md') (Join-Path $Stage 'THIRD-PARTY-NOTICES.md')
     $driversDoc = Join-Path $RepoRoot 'docs\DRIVERS.md'
     if (Test-Path $driversDoc) {
         New-Item -ItemType Directory -Force (Join-Path $Stage 'docs') | Out-Null

@@ -13,6 +13,7 @@ tilibs is about 72k lines of mature C/C++. CalcLink doesn't fork or rewrite it; 
 ```mermaid
 flowchart TD
     App["CalcLink.App<br/>WinUI 3, C#, MVVM<br/>src/CalcLink.App"]
+    Cli["calclink-cli<br/>console, C#<br/>src/CalcLink.Cli"]
     Abs["CalcLink.Core abstractions<br/>ICalculatorService / ICalculatorSession<br/>src/CalcLink.Core/Abstractions"]
     Sim["Simulator backend<br/>(managed, no hardware)"]
     Nat["Native backend<br/>P/Invoke (LibraryImport) + SerialWorker<br/>src/CalcLink.Core/Native"]
@@ -21,6 +22,7 @@ flowchart TD
     Usb["libusb-1.0 (libusb-1.0.dll) → WinUSB driver"]
     HW["DirectLink USB / SilverLink → calculator"]
     App --> Abs
+    Cli --> Abs
     Abs --> Sim
     Abs --> Nat
     Nat --> Shim --> Ti --> Usb --> HW
@@ -29,8 +31,10 @@ flowchart TD
 | Layer | Responsibility | Must not |
 |---|---|---|
 | **App** (`src/CalcLink.App`) | <ul><li>UI, view models, settings (`%LOCALAPPDATA%\CalcLink\settings.json`), file dialogs, drag and drop</li><li>Feature gating via `ICalculatorSession.Features`</li></ul> | Call native code, or know about tilibs types |
+| **CLI** (`src/CalcLink.Cli`) | <ul><li>`calclink-cli.exe`: the same jobs as the app, from scripts</li><li>Shares the app's backups folder setting and model names through Core</li></ul> | Duplicate logic that belongs in Core |
 | **Core abstractions** (`Abstractions/*.cs`) | <ul><li>The contract: `ICalculatorService` (probe, connect, classify file) and `ICalculatorSession` (one link)</li><li>Value types such as `CalcInfo`, `CalcVariable`, `TransferProgress`, `ScreenImage`</li><li>Enums whose numbers mirror tilibs (`CalcModel`, `CableModel`, `CalcFeatures`)</li></ul> | Depend on WinUI |
 | **Native backend** (`Native/`) | <ul><li>Implements the contract over `calclink_native.dll`</li><li>Marshals structs and UTF-8 strings</li><li>Owns one worker thread per session</li><li>Maps error codes to exceptions</li></ul> | Leak pointers into the App |
+| **Core file formats** (`TiBasic`, `TiVarFile`, `GroupFile`, `Backups`, `RestorePlan`, `ScreenPng`) | <ul><li>Managed readers and writers for TI-83 Plus / TI-84 Plus variable and group files, `.tig` backups, TI-BASIC tokens and PNG screenshots</li><li>Lets the Files page, program viewer and editor work without a calculator or the native DLL</li></ul> | Call native code |
 | **Simulator** | <ul><li>Implements the same contract with in-memory calculators</li><li>Used for UI work, tests, CI, and machines without a driver or hardware (ARM64 today)</li></ul> | — |
 | **calclink_native.dll** (`native/`) | <ul><li>A small C++ shim that exposes a flat, versioned C ABI (`CL_ABI_VERSION`)</li><li>Hides GLib, tilibs handles and callbacks</li></ul> | Expose GLib types, or keep state that isn't per-session |
 | **tilibs** | <ul><li>Cable I/O, calculator protocols, file formats, charset conversion</li><li>Built from source with CMake + vcpkg</li></ul> | — (upstream code; changes go upstream) |
@@ -86,7 +90,7 @@ flowchart TD
   * a `CalcLinkException` with `IsCancellation == true` (code −5), once the work was running.
 
   The UI treats both as "cancelled by user", not as an error.
-* **Logging.** Library log output goes through GLib's log handler, which the shim can redirect. Wiring it to a log viewer is on the roadmap.
+* **Logging.** tilibs logs through GLib. The shim installs a log handler that drops these messages, which are mostly routine link chatter, unless the `CALCLINK_LOG` environment variable is set; then GLib prints them to the console as usual. A log viewer in the app is on the roadmap (REVIEW.md F8).
 
 ## 4. Why a C shim instead of P/Invoking tilibs directly
 
@@ -119,14 +123,14 @@ The cost is one more small DLL and a C ABI to maintain. The ABI is deliberately 
 
 See [BUILDING.md](BUILDING.md) for commands.
 
-* **Native.** `native/CMakePresets.json` uses Ninja + MSVC + vcpkg (manifest mode). The presets are `win-x64-release`, `win-x64-debug` and `win-arm64-release`. `cmake --install` produces `calclink_native.dll`, the tilibs/GLib/libusb runtime DLLs, and `clprobe.exe`.
+* **Native.** `native/CMakePresets.json` uses Ninja + MSVC + vcpkg (manifest mode). The presets are `win-x64-release`, `win-x64-debug` and `win-arm64-release`. `cmake --install` produces `calclink_native.dll`, the tilibs/GLib/libusb runtime DLLs, `clprobe.exe` and `calclink-driver.exe`. tilibs is patched at configure time (`native/patches/`: the libusb-1.0 backend and UTF-8 file paths).
 * **.NET.** .NET 10, WinUI 3 with the Windows App SDK, **unpackaged and self-contained**. There is no MSIX, no framework package and no runtime prerequisite.
 * **Packaging.**
-  * `installer/Build-Portable.ps1` publishes per RID, adds `native\<rid>\`, and produces `CalcLink-<version>-<rid>-portable.zip`.
+  * `installer/Build-Portable.ps1` publishes the app and `calclink-cli.exe` per RID into one folder, adds `native\<rid>\`, and produces `CalcLink-<version>-<rid>-portable.zip`.
   * `installer/CalcLink.iss` (Inno Setup 6) builds a per-user installer per architecture. Specifically, it:
     * installs to `{autopf}\CalcLink`;
-    * registers "Open with" file associations under HKCU;
-    * has no shared DLLs and installs no drivers.
+    * optionally registers "Open with" and a "Send to calculator (CalcLink)" right-click command for calculator files, under HKCU (HKLM for all users);
+    * has no shared DLLs and installs no drivers. It ships `calclink-driver.exe`, which runs only when the user clicks "Set up USB driver".
   * winget templates are in `installer/winget/`.
 * **CI** (`.github/workflows/`):
   * `ci.yml` builds and tests on every push/PR. Both architectures are cross-compiled on x64 runners.
@@ -135,21 +139,21 @@ See [BUILDING.md](BUILDING.md) for commands.
 ## 6. Licensing
 
 * **CalcLink: GPL-2.0-or-later** (`LICENSE`). tilibs is licensed "GPL-2.0 or (at your option) any later version", and calclink_native.dll and the app link to it in the same process. That makes the combined work GPL. GPL-2.0-or-later keeps CalcLink compatible with tilibs and leaves room for GPL-3.0 combinations.
-* **MIT dependencies.** .NET runtime and libraries, Windows App SDK / WinUI 3, CommunityToolkit.Mvvm and Microsoft.Extensions.* are MIT-licensed, which is GPL-compatible to ship with.
+* **MIT dependencies.** The .NET runtime and libraries, CommunityToolkit.Mvvm and Microsoft.Extensions.* are MIT-licensed, which is GPL-compatible.
+* **Windows App SDK (WinUI 3).** Its source on GitHub is MIT, but the runtime files the NuGet package places next to the app come under the *Microsoft Software License Terms for the Windows App SDK*, which allow redistributing them with applications. They are not GPL-compatible in the strict sense. They're a platform runtime the app runs on and doesn't modify, a common situation for GPL apps on Windows, but GPLv2's system-library exception doesn't clearly cover a runtime that ships with the app. This is noted here so a distributor can make their own call.
 * **vcpkg-built dependencies.** Each ships under its own license; all of them are GPL-compatible:
-  * GLib and gettext's libintl: LGPL-2.1+
-  * libiconv: LGPL
+  * GLib, gettext's libintl, libiconv and libusb-1.0: LGPL-2.1-or-later
+  * PCRE2: BSD-3-Clause with the PCRE2 exception
   * zlib: Zlib
-  * libarchive: BSD-2
-  * libusb-1.0: LGPL-2.1+
+  * libarchive: BSD-2-Clause
 
-  A `THIRD-PARTY-NOTICES` file listing them should ship in the packages (roadmap).
+  [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) lists everything that ships. The native install collects the license texts into `bin/licenses/`, and the packages include them as `licenses\`.
 * **Source availability.** Every binary release is built from a public tag, so the corresponding source is the tag itself (including the tilibs revision it pins). Please attach the source archive to the release if a distribution channel requires it.
 * **Trademarks.** "TI", "TI-84 Plus", "TI-Nspire" and other model names are trademarks of Texas Instruments. CalcLink is not affiliated with TI.
 
 ## 7. Roadmap
 
-Derived from AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L are rough effort sizes.
+Derived from TILP_AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L are rough effort sizes. This is the technical view; the feature list the project works from is [REVIEW.md](REVIEW.md) §3 (F1–F12).
 
 ### 7.1 USB modernisation: done in CalcLink, to be upstreamed
 
@@ -168,20 +172,20 @@ Derived from AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L are 
 
 ### 7.2 Features
 
-| # | Feature | Notes | Size |
-|---|---|---|---|
-| 1 | **Rename / move / archive / lock on the calculator** | Already in the ABI (`cl_rename_var`, `cl_set_attr`) and gated on `OPS_RENAME` / `OPS_CHATTR`. **On the TI-84 Plus CE family, tilibs has `OPS_IDLIST`, `OPS_RENAME` and `OPS_CHATTR` commented out** (`libticalcs/trunk/src/calc_84p.cc`). CE support needs upstream tilibs work and testing first. | S (UI) + M (tilibs) |
-| 2 | **OS-upgrade safety checks** | Before sending an OS: check `battery_ok`, compare the OS/boot versions with the file's, and warn on downgrades (CE anti-downgrade). | M |
-| 3 | **Remote keypad** | `cl_send_key` exists; the work is clickable per-model keypads from tilibs' key tables (`ticalcs_keys_*`), gated on `OPS_KEYS`. | M |
-| 4 | **Live screen mirror** | Poll `cl_recv_screen` on the session worker at a user-chosen rate, with frame dropping. Also add copy to clipboard and scaling. | M |
-| 5 | **"Send and run"** | `cl_execute` after sending, where the model supports it. | S–M |
-| 6 | **Hotplug / auto-reconnect** | Register for Windows device-interface notifications (`CM_Register_Notification` / `WM_DEVICECHANGE`, filtered to VID `0451`). Re-probe on arrival and raise `Disconnected` on removal. tilibs has no hotplug API (AUDIT §3.4), so this lives in Core. | M–L |
-| 7 | **CLI** (`calclink-cli`) | Probe, dirlist, send, receive, backup, screenshot, clock, ROM dump and OS version, built on Core, for classrooms and scripting. Each verb maps to one existing session method. | M |
-| 8 | **Content preview** | Show pictures/images (`.8ci`, `.8ca`) as images, and TI-Basic listings. TI-Basic detokenisation isn't in tilibs and needs its own token tables. | L |
-| 9 | **Multiple calculators at once** | The contract already allows several sessions, one worker each. The work is UI, plus probe results that distinguish identical devices. | L |
-| 10 | **Protocol/event log viewer** | Hook `ticalcs_calc_set_event_hook` / `ticables_cable_set_event_hook` in the shim and stream the events to a log pane. Needs an ABI addition. | M |
-| 11 | **TCP / emulator cables** | `CABLE_TCPC` / `CABLE_TCPS` for emulators. `CableModel` already has the values. | S |
-| 12 | **Certificates** | Send/receive certificates (`FTS_CERT`). Send already goes through `cl_send_file`; receive needs an ABI call. | S |
+| # | Feature | Notes | Size | Status |
+|---|---|---|---|---|
+| 1 | **Rename / move / archive / lock on the calculator** | Already in the ABI (`cl_rename_var`, `cl_set_attr`) and gated on `OPS_RENAME` / `OPS_CHATTR`. **On the TI-84 Plus CE family, tilibs has `OPS_IDLIST`, `OPS_RENAME` and `OPS_CHATTR` commented out** (`libticalcs/trunk/src/calc_84p.cc`). CE support needs upstream tilibs work and testing first. | S (UI) + M (tilibs) | UI done where tilibs supports it; CE needs tilibs |
+| 2 | **OS-upgrade safety checks** | Before sending an OS: check `battery_ok`, compare the OS/boot versions with the file's, and warn on downgrades (CE anti-downgrade). | M | Battery warning done; version checks not yet |
+| 3 | **Remote keypad** | `cl_send_key` exists; the work is clickable per-model keypads from tilibs' key tables (`ticalcs_keys_*`), gated on `OPS_KEYS`. | M | F2, not planned for now |
+| 4 | **Live screen mirror** | Poll `cl_recv_screen` on the session worker at a user-chosen rate, with frame dropping. Also add copy to clipboard and scaling. | M | Done (Screen page: live view, copy, scaling) |
+| 5 | **"Send and run"** | `cl_execute` after sending, where the model supports it. | S–M | Run done; combined "send and run" not yet |
+| 6 | **Hotplug / auto-reconnect** | Register for Windows device-interface notifications (`CM_Register_Notification` / `WM_DEVICECHANGE`, filtered to VID `0451`). Re-probe on arrival and raise `Disconnected` on removal. tilibs has no hotplug API (AUDIT §3.4), so this lives in Core. | M–L | F3, not planned for now |
+| 7 | **CLI** (`calclink-cli`) | Probe, dirlist, send, receive, backup, screenshot, clock, ROM dump and OS version, built on Core, for classrooms and scripting. Each verb maps to one existing session method. | M | Done (F9) without clock, ROM dump and OS verbs |
+| 8 | **Content preview** | Show pictures/images (`.8ci`, `.8ca`) as images, and TI-Basic listings. TI-Basic detokenisation isn't in tilibs and needs its own token tables. | L | TI-BASIC listings done (F1); pictures are F6 |
+| 9 | **Multiple calculators at once** | The contract already allows several sessions, one worker each. The work is UI, plus probe results that distinguish identical devices. | L | F11, not planned for now |
+| 10 | **Protocol/event log viewer** | Hook `ticalcs_calc_set_event_hook` / `ticables_cable_set_event_hook` in the shim and stream the events to a log pane. Needs an ABI addition. | M | F8, not planned for now |
+| 11 | **TCP / emulator cables** | `CABLE_TCPC` / `CABLE_TCPS` for emulators. `CableModel` already has the values. | S | Planned as F12 |
+| 12 | **Certificates** | Send/receive certificates (`FTS_CERT`). Send already goes through `cl_send_file`; receive needs an ABI call. | S | Not started |
 
 ### 7.3 Library-side gaps to raise upstream
 
@@ -191,7 +195,6 @@ Derived from AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L are 
 
 ### 7.4 Packaging
 
-* `THIRD-PARTY-NOTICES`.
 * Signed uninstaller, using Inno `SignTool` wired to Trusted Signing.
 * Automated winget submission once the package ID is final.
 * MSIX, only if it ever becomes useful: now that drivers aren't part of the installer, it is technically possible.
