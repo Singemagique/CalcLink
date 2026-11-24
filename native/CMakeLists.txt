@@ -61,11 +61,25 @@ foreach(_lang C CXX)
     string(REGEX REPLACE "/RTC[1csu]+" "" CMAKE_${_lang}_FLAGS_DEBUG "${CMAKE_${_lang}_FLAGS_DEBUG}")
 endforeach()
 
-# vcpkg: make sure pkg-config is found (host tool, also when cross-compiling to ARM64).
-if(NOT PKG_CONFIG_EXECUTABLE AND DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_HOST_TRIPLET)
+# vcpkg: make sure pkg-config is found. It's a host tool (vcpkg.json: "host": true), installed
+# under the host triplet's tree. When target and host match (x64 on x64), vcpkg's toolchain
+# already puts it on the program path. When cross-compiling (ARM64 on x64) it doesn't, and
+# vcpkg.cmake only defines VCPKG_HOST_TRIPLET if the user passes it, so derive it here.
+if(NOT PKG_CONFIG_EXECUTABLE AND DEFINED VCPKG_INSTALLED_DIR)
+    if(VCPKG_HOST_TRIPLET)
+        set(_host_triplet "${VCPKG_HOST_TRIPLET}")
+    elseif(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "^(ARM64|arm64|aarch64)$")
+        set(_host_triplet "arm64-windows")
+    else()
+        set(_host_triplet "x64-windows")
+    endif()
     find_program(PKG_CONFIG_EXECUTABLE NAMES pkgconf pkg-config
-        HINTS "${VCPKG_INSTALLED_DIR}/${VCPKG_HOST_TRIPLET}/tools/pkgconf"
-        NO_DEFAULT_PATH)
+        HINTS "${VCPKG_INSTALLED_DIR}/${_host_triplet}/tools/pkgconf"
+              "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/pkgconf"
+        NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    if(PKG_CONFIG_EXECUTABLE)
+        message(STATUS "pkg-config: ${PKG_CONFIG_EXECUTABLE}")
+    endif()
 endif()
 
 if(TILIBS_SOURCE_DIR)
