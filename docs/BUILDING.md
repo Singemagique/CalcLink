@@ -215,6 +215,7 @@ How the installer behaves:
   * the portable zips;
   * the installers;
   * the symbol zips;
+  * `CalcLink-<version>-third-party-sources.zip`, the source of the shipped third-party libraries, which the LGPL and GPL ask for next to the binaries (made by `installer/Get-ThirdPartySources.ps1` in the x64 native job);
   * `SHA256SUMS.txt`.
 
   It also uploads filled-in winget manifests as an artifact (see `installer/winget/README.md`).

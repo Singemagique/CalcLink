@@ -4,7 +4,7 @@ CalcLink is licensed GPL-2.0-or-later (see [LICENSE](LICENSE)). Its releases inc
 
 * **Where the license texts are.** In a CalcLink package (portable zip or installed folder), they are in `licenses\`. That folder is collected from tilibs and vcpkg by the native build (`native/CMakeLists.txt`).
 * **Versions.** The versions are those pinned by `native/vcpkg.json` (its `builtin-baseline`), by the tilibs commit in `native/CMakeLists.txt`, and by the package versions in the `.csproj` files.
-* **Source code.** The source of every release is its Git tag, which pins all of the above. On request, the maintainers provide the corresponding source of the LGPL libraries as built for that release.
+* **Source code.** Every GitHub release has a `CalcLink-<version>-third-party-sources.zip` next to the binaries. It holds the source of each library above as built: the exact source archives vcpkg verified, vcpkg's build recipes and patches, and tilibs with CalcLink's patches. CalcLink's own source is the release's Git tag. `installer/Get-ThirdPartySources.ps1` makes the zip.
 
 ## Native backend (`native\<rid>\`)
 

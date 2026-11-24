@@ -123,6 +123,7 @@ jobs:
 
   native:
     name: Native (${{ matrix.rid }})
+    needs: version
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -232,6 +233,25 @@ jobs:
           name: native-${{ matrix.rid }}
           path: native/out/install/${{ matrix.preset }}/bin
           if-no-files-found: error
+
+      # Releases (v* tags) attach the source of the shipped LGPL/GPL libraries next to the
+      # binaries, as their licenses ask. The archives are the same for both architectures.
+      - name: Bundle third-party sources (releases only)
+        if: matrix.rid == 'win-x64' && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: >
+          ./installer/Get-ThirdPartySources.ps1
+          -VcpkgInstalled native/out/build/${{ matrix.preset }}/vcpkg_installed/${{ matrix.triplet }}
+          -OutFile "dist/CalcLink-${{ needs.version.outputs.version }}-third-party-sources.zip"
+
+      - name: Upload third-party sources (releases only)
+        if: matrix.rid == 'win-x64' && startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-third-party-sources
+          path: dist/*-third-party-sources.zip
+          if-no-files-found: error
+          compression-level: 0
 
   app:
     name: App (${{ matrix.rid }})

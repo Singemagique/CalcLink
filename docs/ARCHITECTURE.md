@@ -148,7 +148,7 @@ See [BUILDING.md](BUILDING.md) for commands.
   * libarchive: BSD-2-Clause
 
   [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md) lists everything that ships. The native install collects the license texts into `bin/licenses/`, and the packages include them as `licenses\`.
-* **Source availability.** Every binary release is built from a public tag, so the corresponding source is the tag itself (including the tilibs revision it pins). Please attach the source archive to the release if a distribution channel requires it.
+* **Source availability.** Every binary release is built from a public tag, which is CalcLink's corresponding source. The release also attaches `CalcLink-<version>-third-party-sources.zip`, made by `installer/Get-ThirdPartySources.ps1`. It holds the source of the shipped LGPL and GPL libraries as built: the source archives recorded in vcpkg's `vcpkg.spdx.json` files, checked against their SHA-512, the vcpkg port recipes with their patches, and tilibs at its pinned commit with CalcLink's patches. Sources sit next to the binaries, so nobody has to ask for them. Anyone who redistributes the binaries elsewhere should carry this zip along.
 * **Trademarks.** "TI", "TI-84 Plus", "TI-Nspire" and other model names are trademarks of Texas Instruments. CalcLink is not affiliated with TI.
 
 ## 7. Roadmap
