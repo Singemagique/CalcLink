@@ -7,6 +7,6 @@
     <Company>CalcLink contributors</Company>
     <Product>CalcLink</Product>
     <Copyright>Copyright (C) 2026 CalcLink contributors. GPL-2.0-or-later.</Copyright>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
   </PropertyGroup>
 </Project>

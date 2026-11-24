@@ -4,7 +4,7 @@ A modern Windows 10/11 app (x64 and ARM64) for connecting TI graphing calculator
 
 CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](https://github.com/debrouxl/tilp_and_gfm). It is built on the same proven calculator-protocol libraries, [tilibs](https://github.com/debrouxl/tilibs).
 
-> **Status:** early preview (v0.1.0).
+> **Status:** v1.0.0, the first release.
 > * **Tested on real hardware:** a TI-83 Plus (OS 1.16) on a SilverLink cable, with Windows 10 x64 and the WinUSB driver.
 > * **Not yet tested:** the other models and cables.
 > * **Without hardware:** the app also runs against a built-in **simulator**.

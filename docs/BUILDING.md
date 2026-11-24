@@ -180,9 +180,9 @@ You need Inno Setup 6.3 or newer. Stage the app first (section 6), then:
 
 ```powershell
 $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-& $iscc /DArch=x64   /DAppVersion=0.1.0 installer\CalcLink.iss
-& $iscc /DArch=arm64 /DAppVersion=0.1.0 installer\CalcLink.iss
-# -> artifacts\dist\CalcLink-0.1.0-win-x64-setup.exe, ...-win-arm64-setup.exe
+& $iscc /DArch=x64   /DAppVersion=1.0.0 installer\CalcLink.iss
+& $iscc /DArch=arm64 /DAppVersion=1.0.0 installer\CalcLink.iss
+# -> artifacts\dist\CalcLink-1.0.0-win-x64-setup.exe, ...-win-arm64-setup.exe
 ```
 
 Optional defines:
