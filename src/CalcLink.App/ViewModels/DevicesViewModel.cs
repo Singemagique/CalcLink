@@ -35,7 +35,11 @@ public sealed partial class DeviceItem(DeviceDescriptor device) : ObservableObje
             {
                 parts.Add($"USB {Device.VendorId:X4}:{Device.ProductId:X4}");
             }
-            if (Device.Port > 0)
+            if (Device.SerialPort is { } serial)
+            {
+                parts.Add(serial);
+            }
+            else if (Device.Port > 0)
             {
                 parts.Add($"port {Device.Port}");
             }
@@ -69,6 +73,7 @@ public sealed partial class DevicesViewModel : ObservableObject
             ConnectCommand.NotifyCanExecuteChanged();
             DisconnectCommand.NotifyCanExecuteChanged();
             SetUpDriverCommand.NotifyCanExecuteChanged();
+            ConnectManuallyCommand.NotifyCanExecuteChanged();
         };
         connection.SessionChanged += (_, _) =>
         {
@@ -176,6 +181,7 @@ public sealed partial class DevicesViewModel : ObservableObject
             {
                 Devices.Add(new DeviceItem(d));
             }
+            MergeManualDevices();
             UpdateConnectedState();
             SelectedDevice = Devices.FirstOrDefault(i => i.IsConnected) ?? Devices.FirstOrDefault();
             IsEmpty = Devices.Count == 0;
@@ -185,7 +191,7 @@ public sealed partial class DevicesViewModel : ObservableObject
 
             // Launched with files ("Open with CalcLink"): connect straight away when the choice is obvious;
             // otherwise the banner asks the user to pick a calculator.
-            if (Pending.HasPending && Devices.Count == 1 && !Connection.IsConnected)
+            if (Pending.HasPending && Devices.Count == 1 && Devices[0].Device.Model != CalcModel.None && !Connection.IsConnected)
             {
                 await ConnectAsync(Devices[0]);
             }
@@ -313,12 +319,188 @@ public sealed partial class DevicesViewModel : ObservableObject
             _navigation.Navigate(AppPage.Calculator);
             return;
         }
+        if (target.Device.Model == CalcModel.None)
+        {
+            // A SilverLink whose calculator didn't answer the scan: it may be waiting for an OS.
+            await SetUpConnectionAsync(target);
+            return;
+        }
+        await ConnectToAsync(target, AppPage.Calculator);
+    }
+
+    private async Task ConnectToAsync(DeviceItem target, AppPage destination)
+    {
         var outcome = await _operations.RunAsync($"Connecting to {target.Name}",
             (_, ct) => Connection.ConnectAsync(target.Device, ct));
         if (outcome == OperationOutcome.Succeeded)
         {
-            _navigation.Navigate(AppPage.Calculator);
+            _navigation.Navigate(destination);
         }
+    }
+
+    // ---- Connections set up by hand ------------------------------------------------------------
+
+    /// <summary>Models that use a SilverLink or GrayLink cable, offered by "Set up a connection".</summary>
+    private static readonly CalcModel[] LinkCableModels =
+    [
+        CalcModel.TI83P, CalcModel.TI84P, CalcModel.TI84PC, CalcModel.TI73, CalcModel.TI82, CalcModel.TI83,
+        CalcModel.TI85, CalcModel.TI86, CalcModel.TI89, CalcModel.TI89T, CalcModel.TI92, CalcModel.TI92P, CalcModel.V200,
+    ];
+
+    /// <summary>
+    /// Connections set up by hand: GrayLink cables (a scan can't find them) and SilverLinks whose calculator
+    /// didn't answer the scan. They stay in the list across scans until a scan identifies the calculator
+    /// (or, for a GrayLink, until its COM port goes away).
+    /// </summary>
+    private readonly List<DeviceDescriptor> _manual = [];
+
+    private static bool SameCable(DeviceDescriptor a, DeviceDescriptor b) =>
+        a.Cable == b.Cable && a.Port == b.Port && string.Equals(a.SerialPort, b.SerialPort, StringComparison.OrdinalIgnoreCase);
+
+    private static string CableLabel(DeviceDescriptor cable) => cable.Cable == CableModel.GrayLink
+        ? $"Gray TI-Graph Link on {cable.SerialPort}"
+        : $"SilverLink USB cable (port {cable.Port})";
+
+    private int IndexOfCable(DeviceDescriptor cable)
+    {
+        for (int i = 0; i < Devices.Count; i++)
+        {
+            if (SameCable(Devices[i].Device, cable))
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /// <summary>Adds the remembered connections to a fresh scan result.</summary>
+    private void MergeManualDevices()
+    {
+        IReadOnlyList<string> ports = Connection.Service?.GetSerialPorts() ?? [];
+        _manual.RemoveAll(m => m.Cable == CableModel.GrayLink
+            && !ports.Contains(m.SerialPort ?? string.Empty, StringComparer.OrdinalIgnoreCase));
+        for (int k = _manual.Count - 1; k >= 0; k--)
+        {
+            DeviceDescriptor m = _manual[k];
+            int i = IndexOfCable(m);
+            if (i < 0)
+            {
+                Devices.Add(new DeviceItem(m));
+            }
+            else if (Devices[i].Device.Model == CalcModel.None)
+            {
+                Devices[i] = new DeviceItem(m); // replaces "unknown calculator" with the model chosen for it
+            }
+            else
+            {
+                _manual.RemoveAt(k); // the scan identified the calculator itself
+            }
+        }
+        IsEmpty = Devices.Count == 0;
+    }
+
+    private bool CanConnectManually() => HasBackend && !_operations.IsBusy;
+
+    [RelayCommand(CanExecute = nameof(CanConnectManually))]
+    private Task ConnectManuallyAsync() => SetUpConnectionAsync(null);
+
+    /// <param name="unidentified">A scanned SilverLink whose calculator didn't say which model it is, or null.</param>
+    private async Task SetUpConnectionAsync(DeviceItem? unidentified)
+    {
+        if (Connection.Service is not { } service)
+        {
+            return;
+        }
+
+        // SilverLinks from the last scan, then every COM port (a GrayLink can't be detected).
+        var cables = new List<DeviceDescriptor>();
+        foreach (DeviceItem item in Devices)
+        {
+            if (item.Device.Cable == CableModel.SilverLink && !cables.Any(c => SameCable(c, item.Device)))
+            {
+                cables.Add(item.Device with { Model = CalcModel.None });
+            }
+        }
+        foreach (string port in service.GetSerialPorts())
+        {
+            cables.Add(new DeviceDescriptor($"Gray TI-Graph Link on {port}", CableModel.GrayLink, 1, CalcModel.None, 0, 0)
+            {
+                SerialPort = port,
+            });
+        }
+        if (cables.Count == 0)
+        {
+            await _dialogs.ShowMessageAsync("No cable found",
+                "CalcLink found no SilverLink cable and no COM port. Plug in the SilverLink and press Scan, or plug in " +
+                "the gray TI-Graph Link's USB-serial adapter and try again.\n\n" +
+                "Calculators with their own USB port don't need this: Scan finds them.");
+            return;
+        }
+
+        int cableIndex = unidentified is null ? 0 : Math.Max(0, cables.FindIndex(c => SameCable(c, unidentified.Device)));
+        var modelLabels = new List<string> { "Detect automatically" };
+        modelLabels.AddRange(LinkCableModels.Select(ModelNames.Of));
+        string? note = unidentified is null ? null :
+            "The calculator on the SilverLink didn't answer. If it's switched off or busy, turn it on, go to its home " +
+            "screen and scan again.\n\n" +
+            "If its screen says it's waiting for an operating system (\"Waiting... Please install operating system now\"), " +
+            "choose its model below and connect. Then use Tools → Send OS to reinstall the OS.";
+        var choice = await _dialogs.PickConnectionAsync(note, cables.Select(CableLabel).ToList(), cableIndex,
+            modelLabels, unidentified is null ? 0 : -1);
+        if (choice is not { } picked)
+        {
+            return;
+        }
+
+        DeviceDescriptor cable = cables[picked.Cable];
+        CalcModel model;
+        bool chosenByHand = picked.Model > 0;
+        if (chosenByHand)
+        {
+            model = LinkCableModels[picked.Model - 1];
+        }
+        else
+        {
+            var (outcome, detected) = await _operations.RunAsync($"Asking the calculator on the {CableLabel(cable)}",
+                (_, ct) => service.DetectModelAsync(cable, ct));
+            if (outcome != OperationOutcome.Succeeded)
+            {
+                return;
+            }
+            if (detected == CalcModel.None)
+            {
+                await _dialogs.ShowMessageAsync("No calculator answered",
+                    $"Nothing answered on the {CableLabel(cable)}. Check that the calculator is switched on and showing " +
+                    "its home screen, and that both ends of the cable are pushed in firmly.\n\n" +
+                    "If the calculator is waiting for an operating system, set up the connection again and choose its " +
+                    "model instead of Detect automatically.");
+                return;
+            }
+            model = detected;
+        }
+
+        string name = cable.Cable == CableModel.GrayLink ? $"{ModelNames.Of(model)} on {cable.SerialPort}" : ModelNames.Of(model);
+        DeviceDescriptor device = cable with { Model = model, DisplayName = name };
+        _manual.RemoveAll(m => SameCable(m, device));
+        _manual.Add(device);
+        var entry = new DeviceItem(device);
+        int existing = IndexOfCable(device);
+        if (existing >= 0)
+        {
+            Devices[existing] = entry;
+        }
+        else
+        {
+            Devices.Add(entry);
+        }
+        IsEmpty = false;
+        EmptyText = string.Empty;
+        UpdateConnectedState();
+        SelectedDevice = entry;
+
+        // A model chosen by hand usually means the calculator isn't answering (e.g. it's in its boot code), so
+        // open Tools, where Send OS is, rather than the variable list.
+        await ConnectToAsync(entry, chosenByHand ? AppPage.Tools : AppPage.Calculator);
     }
 
     private bool CanDisconnect() => Connection.IsConnected && !_operations.IsBusy;

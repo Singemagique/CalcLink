@@ -71,6 +71,23 @@ internal sealed unsafe partial class NativeCalculatorService : ICalculatorServic
         return Enum.IsDefined((TiFileClass)cls) ? (TiFileClass)cls : TiFileClass.Unknown;
     }
 
+    public IReadOnlyList<string> GetSerialPorts() => SerialPorts.GetNames();
+
+    public Task<CalcModel> DetectModelAsync(DeviceDescriptor device, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        if (device.Cable is not (CableModel.SilverLink or CableModel.GrayLink))
+            return Task.FromResult(device.Model);
+        return _worker.RunAsync(() =>
+        {
+            int model;
+            int rc = NativeMethods.cl_probe_calc((int)device.Cable, Math.Max(device.Port, 1), device.SerialPort, &model);
+            if (rc != CalcErrorCodes.Ok)
+                throw new CalcLinkException(rc, $"Could not open {device.DisplayName}: {NativeMethods.ErrorMessage(rc)}");
+            return Enum.IsDefined((CalcModel)model) ? (CalcModel)model : CalcModel.None;
+        }, ct);
+    }
+
     public void Dispose() => _worker.Dispose();
 }
 

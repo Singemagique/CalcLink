@@ -56,9 +56,15 @@ public enum VariableAttribute : byte { None = 0, Locked = 1, Protected = 2, Arch
 
 public enum TiFileClass { Unknown = 0, Variable, App, Os, Backup, TiGroup, Certificate }
 
-/// <summary>A calculator (or cable) found during discovery.</summary>
+/// <summary>A calculator (or cable) found during discovery, or set up by hand.</summary>
+/// <remarks><see cref="Model"/> is <see cref="CalcModel.None"/> when the calculator didn't say which it is,
+/// e.g. a TI-83 Plus waiting in its boot code for an OS: connecting then needs a model chosen by hand.</remarks>
 public sealed record DeviceDescriptor(
-    string DisplayName, CableModel Cable, int Port, CalcModel Model, ushort VendorId, ushort ProductId);
+    string DisplayName, CableModel Cable, int Port, CalcModel Model, ushort VendorId, ushort ProductId)
+{
+    /// <summary>For a GrayLink serial cable, its COM port ("COM3"); null for every other cable.</summary>
+    public string? SerialPort { get; init; }
+}
 
 /// <summary>Identity and capability information read from the calculator.</summary>
 /// <remarks>

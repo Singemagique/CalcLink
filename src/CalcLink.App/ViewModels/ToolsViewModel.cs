@@ -81,6 +81,7 @@ public sealed partial class ToolsViewModel : ObservableObject
     public bool CanClock => Idle && HasClock;
     public bool CanDumpRom => Idle && Connection.Supports(CalcFeatures.RomDump);
     public bool CanSendOs => Idle && Connection.Supports(CalcFeatures.Os);
+    public bool CanLeaveExamMode => Idle && Connection.Session?.CanLeaveExamMode == true;
 
     /// <summary>The connected model has a clock we can read and set: the Clock card shows its pickers and buttons.</summary>
     public bool HasClock => Connection.Supports(CalcFeatures.Clock) && Connection.Info?.ClockSupport != false;
@@ -106,6 +107,11 @@ public sealed partial class ToolsViewModel : ObservableObject
         : Connection.Supports(CalcFeatures.Os) ? string.Empty
         : $"OS upgrades aren't supported on the {Connection.ModelName}.";
 
+    public string ExamNote =>
+        !Connection.IsConnected ? "Connect a calculator to end its exam mode."
+        : Connection.Session?.CanLeaveExamMode == true ? string.Empty
+        : $"The {Connection.ModelName} has no exam mode that CalcLink can end.";
+
     public void OnNavigatedTo()
     {
         RebuildInfo();
@@ -122,6 +128,7 @@ public sealed partial class ToolsViewModel : ObservableObject
         SyncClockCommand.NotifyCanExecuteChanged();
         DumpRomCommand.NotifyCanExecuteChanged();
         SendOsCommand.NotifyCanExecuteChanged();
+        LeaveExamModeCommand.NotifyCanExecuteChanged();
     }
 
     private void RebuildInfo()
@@ -301,6 +308,44 @@ public sealed partial class ToolsViewModel : ObservableObject
             _notifications.Post("OS sent",
                 "The operating system was transferred. The calculator will restart; reconnect once it has finished.",
                 InfoBarSeverity.Success);
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanLeaveExamMode))]
+    private async Task LeaveExamModeAsync()
+    {
+        if (Connection.Session is not { } session)
+        {
+            return;
+        }
+        bool nspire = session.Model == CalcModel.Nspire;
+        bool ok = await _dialogs.ConfirmAsync("Leave exam mode?",
+            nspire
+                ? "CalcLink asks the TI-Nspire to end Press-to-Test. The calculator then restarts, which closes the " +
+                  "connection. Save any open document on the calculator first."
+                : "CalcLink copies the calculator's window settings (the RclWindw variable) to the PC and straight back. " +
+                  "That ends Press-to-Test, as linking to a computer does; nothing else on the calculator changes.",
+            "Leave exam mode");
+        if (!ok)
+        {
+            return;
+        }
+        var outcome = await _operations.RunAsync("Leaving exam mode", (_, ct) => session.LeaveExamModeAsync(ct));
+        if (outcome != OperationOutcome.Succeeded)
+        {
+            return;
+        }
+        if (nspire)
+        {
+            // It restarts: the link is gone, so don't wait for the next command to find out.
+            await Connection.DisconnectAsync();
+            _notifications.Post("Exam mode request sent",
+                "The TI-Nspire is restarting. Reconnect once it shows its home screen.", InfoBarSeverity.Success);
+        }
+        else
+        {
+            _notifications.Post("Exam mode request sent",
+                "Check the calculator: if it was in exam mode, its exam light stops blinking.", InfoBarSeverity.Success);
         }
     }
 

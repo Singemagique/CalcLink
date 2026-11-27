@@ -24,6 +24,18 @@ public interface ICalculatorService
 
     /// <summary>Classifies a local file by extension and content (var, app, OS, backup...).</summary>
     TiFileClass ClassifyFile(string path, out CalcModel model);
+
+    /// <summary>The PC's COM ports ("COM3"...), where a GrayLink serial cable could be. Scanning USB doesn't
+    /// find a GrayLink: it has to be set up by hand.</summary>
+    IReadOnlyList<string> GetSerialPorts();
+
+    /// <summary>
+    /// Asks the calculator on a SilverLink or GrayLink which model it is. <see cref="CalcModel.None"/> when
+    /// nothing answers (calculator off, or in its boot code waiting for an OS). A DirectLink device is
+    /// identified by the scan, so its <see cref="DeviceDescriptor.Model"/> is returned as is.
+    /// Throws <see cref="CalcLinkException"/> when the cable itself can't be opened.
+    /// </summary>
+    Task<CalcModel> DetectModelAsync(DeviceDescriptor device, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -75,4 +87,14 @@ public interface ICalculatorSession : IAsyncDisposable
     /// <summary>Full backup. A ".tig" path produces a TIGroup, anything else a native backup.</summary>
     Task BackupAsync(string path, IProgress<TransferProgress>? progress = null, CancellationToken ct = default);
     Task DumpRomAsync(string path, IProgress<TransferProgress>? progress = null, CancellationToken ct = default);
+
+    /// <summary>True when <see cref="LeaveExamModeAsync"/> works on this model (CE-family TI-84/83/82 models
+    /// and the TI-Nspire). No tilibs feature bit covers it.</summary>
+    bool CanLeaveExamMode { get; }
+
+    /// <summary>
+    /// Ends exam mode (Press-to-Test), like linking to a computer at the end of an exam does. Harmless when the
+    /// calculator isn't in exam mode. A TI-Nspire restarts afterwards, so its link is lost: reconnect.
+    /// </summary>
+    Task LeaveExamModeAsync(CancellationToken ct = default);
 }

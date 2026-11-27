@@ -31,8 +31,10 @@ extern "C" {
 
 /* Bump on any breaking change to structs or signatures, or when C# starts needing a new export.
  * C# checks this at load. v2: cl_get_calc_id, cl_read_file_vars; cl_set_clock formats 0 = keep.
- * v3: cl_reset_cancel; calls no longer clear the cancel flag themselves. */
-#define CL_ABI_VERSION 3
+ * v3: cl_reset_cancel; calls no longer clear the cancel flag themselves.
+ * v4: cl_open_device, cl_probe_calc (GrayLink serial cable, manual model choice), cl_can_leave_exam_mode,
+ *     cl_leave_exam_mode. */
+#define CL_ABI_VERSION 4
 
 /* ---- Shim error codes (negative). Positive codes come from tilibs. ---- */
 #define CL_OK               0
@@ -136,6 +138,11 @@ CL_API void        CL_CALL cl_free(void* p);
 /* ---- Discovery ---- */
 /* Fills up to `capacity` devices; *count receives the number found (may exceed capacity). */
 CL_API int CL_CALL cl_probe_usb(cl_device* out, int32_t capacity, int32_t* count);
+/* Asks the calculator on a SilverLink (CABLE_SLV) or GrayLink (CABLE_GRY) cable which model it is.
+ * device: for the GrayLink, its COM port ("COM7"); NULL = COM1..COM4 from cable_port. Others: NULL.
+ * *calc_model = CALC_NONE (0) and CL_OK when nothing answers, e.g. a calculator off, or waiting in its
+ * boot code for an OS. Fails only when the cable itself can't be opened. DirectLink: CL_E_NOT_SUPPORTED. */
+CL_API int CL_CALL cl_probe_calc(int32_t cable_model, int32_t cable_port, const char* device, int32_t* calc_model);
 CL_API int CL_CALL cl_classify_file(const char* path, int32_t* file_class, int32_t* calc_model);
 CL_API const char* CL_CALL cl_model_name(int32_t calc_model);   /* static UTF-8 */
 
@@ -143,6 +150,10 @@ CL_API const char* CL_CALL cl_model_name(int32_t calc_model);   /* static UTF-8 
 /* timeout_ds: link timeout in tenths of a second (tilibs convention); 0 = default. */
 CL_API int      CL_CALL cl_open(int32_t cable_model, int32_t cable_port, int32_t calc_model,
                                 int32_t timeout_ds, cl_session** out);
+/* cl_open with a device name. Only the GrayLink takes one: a COM port, "COM1".."COM255" (or "\\.\COMn");
+ * anything else is CL_E_INVALID_ARG. NULL or "" = the cable's default for cable_port (= cl_open). */
+CL_API int      CL_CALL cl_open_device(int32_t cable_model, int32_t cable_port, const char* device,
+                                       int32_t calc_model, int32_t timeout_ds, cl_session** out);
 CL_API void     CL_CALL cl_close(cl_session* s);
 CL_API uint32_t CL_CALL cl_features(cl_session* s);  /* tilibs CalcFeatures bits (OPS_*, FTS_*) */
 CL_API int32_t  CL_CALL cl_calc_model(cl_session* s);
@@ -190,6 +201,12 @@ CL_API int CL_CALL cl_set_clock(cl_session* s, const cl_clock* in);
 /* Full backup to `path`: TIGroup (.tig) if the extension is .tig, else native backup. */
 CL_API int CL_CALL cl_backup(cl_session* s, const char* path);
 CL_API int CL_CALL cl_dump_rom(cl_session* s, const char* path);
+/* Exam mode (Press-to-Test). 1 if cl_leave_exam_mode supports this model: the TI-83 Premium CE,
+ * TI-84 Plus CE, TI-84 Plus T and TI-82 Advanced (a variable is received and sent back, which ends
+ * exam mode), and the TI-Nspire (remote management request; the calculator then restarts, so the
+ * link is lost). Harmless on a calculator that isn't in exam mode. */
+CL_API int32_t CL_CALL cl_can_leave_exam_mode(cl_session* s);
+CL_API int CL_CALL cl_leave_exam_mode(cl_session* s);
 
 #ifdef __cplusplus
 }

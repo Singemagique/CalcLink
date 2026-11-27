@@ -64,7 +64,9 @@ public sealed class SimulatedCalculatorService : ICalculatorService
         await SimDelay.Wait(Options.CommandDelay * 3, ct).ConfigureAwait(false);
 
         SimDevice d = FindDevice(device)
-            ?? throw new CalcLinkException(CalcErrorCodes.CableNoCable, $"No calculator found: {device.DisplayName}.");
+            ?? throw (device.Cable == CableModel.GrayLink
+                ? new CalcLinkException(CalcErrorCodes.CableReadTimeout, $"No calculator answered on {device.SerialPort ?? "the serial port"} (simulated).")
+                : new CalcLinkException(CalcErrorCodes.CableNoCable, $"No calculator found: {device.DisplayName}."));
         lock (d.Gate)
         {
             if (!IsPlugged(d))
@@ -80,6 +82,17 @@ public sealed class SimulatedCalculatorService : ICalculatorService
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
         return SimFiles.Classify(path, out model);
+    }
+
+    /// <summary>One simulated COM port with nothing on it, so the GrayLink setup can be tried.</summary>
+    public IReadOnlyList<string> GetSerialPorts() => ["COM3"];
+
+    public async Task<CalcModel> DetectModelAsync(DeviceDescriptor device, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+        await SimDelay.Wait(Options.ProbeDelay, ct).ConfigureAwait(false);
+        // The simulated serial port has no calculator on it; USB devices know their model.
+        return device.Cable == CableModel.GrayLink ? CalcModel.None : FindDevice(device)?.Descriptor.Model ?? device.Model;
     }
 }
 

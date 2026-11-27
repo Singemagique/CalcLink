@@ -111,6 +111,59 @@ public sealed class DialogService(WindowService window)
         return (showFolder ? folderBox.Text.Trim() : folder, nameBox.Text.Trim());
     }
 
+    /// <summary>
+    /// "Set up a connection": a cable (SilverLink or GrayLink port) and a calculator model.
+    /// Returns the chosen indexes, or null if cancelled. <paramref name="modelIndex"/> -1 = nothing preselected.
+    /// </summary>
+    public async Task<(int Cable, int Model)?> PickConnectionAsync(string? note, IReadOnlyList<string> cables,
+        int cableIndex, IReadOnlyList<string> models, int modelIndex)
+    {
+        var panel = new StackPanel { Spacing = 12, MaxWidth = 480 };
+        if (!string.IsNullOrEmpty(note))
+        {
+            panel.Children.Add(Wrap(note));
+        }
+        var cableBox = new ComboBox
+        {
+            Header = "Cable",
+            ItemsSource = cables,
+            SelectedIndex = cableIndex,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        var modelBox = new ComboBox
+        {
+            Header = "Calculator",
+            ItemsSource = models,
+            SelectedIndex = modelIndex,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+        };
+        panel.Children.Add(cableBox);
+        panel.Children.Add(modelBox);
+        var help = Wrap("A gray TI-Graph Link plugs into a serial port, on most PCs through a USB-serial adapter. " +
+                        "Device Manager lists the adapter's COM port under Ports (COM & LPT). " +
+                        "Calculators that use a USB cable directly are found by Scan.");
+        help.Style = (Style)Application.Current.Resources["SecondaryCaptionTextStyle"];
+        panel.Children.Add(help);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Set up a connection",
+            Content = panel,
+            PrimaryButtonText = "Connect",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        void Update() => dialog.IsPrimaryButtonEnabled = cableBox.SelectedIndex >= 0 && modelBox.SelectedIndex >= 0;
+        cableBox.SelectionChanged += (_, _) => Update();
+        modelBox.SelectionChanged += (_, _) => Update();
+        Update();
+        if (await ShowAsync(dialog) != ContentDialogResult.Primary || cableBox.SelectedIndex < 0 || modelBox.SelectedIndex < 0)
+        {
+            return null;
+        }
+        return (cableBox.SelectedIndex, modelBox.SelectedIndex);
+    }
+
     public async Task<ContentDialogResult> ShowAsync(ContentDialog dialog)
     {
         await _gate.WaitAsync();

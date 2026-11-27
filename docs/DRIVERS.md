@@ -28,8 +28,9 @@ Some practical consequences:
 
 * **One driver setup usually covers every calculator with the same PID.** Windows matches drivers by hardware ID. For example, setting up a TI-84 Plus CE (`E008`) also covers a TI-83 Premium CE plugged in later.
 * **Tested on real hardware:** a SilverLink with a TI-83 Plus (OS 1.16), on Windows 10 x64 with WinUSB. CalcLink identified the calculator automatically, read its version and listed all its variables and apps.
+* **The gray TI-GRAPH LINK serial cable needs no driver from CalcLink.** tilibs talks to it through Windows' ordinary COM port API, so it works on a real serial port or through a USB-serial adapter (with the adapter's own driver). A scan can't find it: on the Devices page, use **Set up a connection…** and pick its COM port. Not yet tested on hardware.
 * **Not supported on Windows:**
-  * The grey/black **TI-GRAPH LINK serial** cable and the **parallel** cable. They needed kernel port drivers that modern Windows won't load (see TILP_AUDIT.md §2.3).
+  * The black **TI-GRAPH LINK serial** cable and the **parallel** cable. tilibs drives them by toggling the port's lines directly, which needed kernel port drivers that modern Windows won't load (see TILP_AUDIT.md §2.3).
   * Unofficial home-made link cables.
 * **Not verified yet:** the DirectLink models (TI-84 Plus family, TI-89 Titanium, Nspire) over WinUSB, and whether the newest Nspire hardware (CX II and later) still enumerates as `0451:E012`.
 

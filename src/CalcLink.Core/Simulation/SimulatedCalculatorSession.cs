@@ -43,6 +43,12 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
     public CalcModel Model => _d.Descriptor.Model;
     public CalcFeatures Features => _d.Features;
 
+    public bool CanLeaveExamMode => Model is CalcModel.TI84PCE_USB or CalcModel.TI83PCE_USB or CalcModel.TI84PT_USB
+        or CalcModel.TI82A_USB or CalcModel.Nspire;
+
+    /// <summary>Number of times exam mode was left (test hook).</summary>
+    internal int ExamExits { get; private set; }
+
     public event EventHandler<CalcLinkException>? Disconnected;
 
     /// <summary>Fault injection: behave as if the USB cable was pulled right now.</summary>
@@ -505,6 +511,21 @@ public sealed class SimulatedCalculatorSession : ICalculatorSession
             if (_d.TypeForExtension(v.Extension) is not { Executable: true })
                 throw new CalcLinkException(CalcErrorCodes.InvalidArgument, $"'{variable.FullName}' ({v.TypeName}) cannot be executed.");
             await Command(ct).ConfigureAwait(false);
+        }, ct);
+    }
+
+    public Task LeaveExamModeAsync(CancellationToken ct = default)
+    {
+        if (!CanLeaveExamMode)
+            return Task.FromException(new CalcLinkException(CalcErrorCodes.NotSupported, $"Leaving exam mode isn't supported on {Model}."));
+        return Op(CalcFeatures.None, async () =>
+        {
+            await Command(ct).ConfigureAwait(false);
+            await Command(ct).ConfigureAwait(false);
+            ExamExits++;
+            // A real TI-Nspire restarts after leaving exam mode, which drops the USB link.
+            if (Model == CalcModel.Nspire)
+                MarkLost(new CalcLinkException(CalcErrorCodes.CableNoCable, $"{Device.DisplayName} restarted (simulated)."));
         }, ct);
     }
 

@@ -45,6 +45,8 @@
 #include <vector>
 
 #include <ticalcs.h>   // also brings in ticables.h, tifiles.h, ticonv.h and glib.h
+#include <nsp_cmd.h>   // TI-Nspire remote management packets (leave exam mode)
+#include <glib/gstdio.h>
 
 #include "calclink.h"
 
@@ -65,6 +67,7 @@ struct cl_session
     CalcHandle*    calc        = nullptr;
     CableModel     cable_model = CABLE_NUL;
     CablePort      cable_port  = PORT_0;
+    std::string    device;                 // serial cables: "\\.\COMn" (empty = the cable's default for the port)
     CalcModel      model       = CALC_NONE;
     unsigned int   timeout_ds  = 0;        // 0 = ticables default (DFLT_TIMEOUT)
     bool           attached    = false;    // false after a failed re-open in cl_is_ready
@@ -490,6 +493,18 @@ int create_handles(cl_session* s)
     {
         ticables_options_set_timeout(s->cable, s->timeout_ds);
     }
+    if (!s->device.empty())
+    {
+        // Before ticalcs_cable_attach opens the cable: the GrayLink's prepare step only fills in
+        // its default device (COM1..COM4 from the port) when none is set.
+        const int dr = ticables_cable_set_device(s->cable, s->device.c_str());
+        if (dr != 0)
+        {
+            ticables_handle_del(s->cable);
+            s->cable = nullptr;
+            return map_ret(nullptr, dr);
+        }
+    }
 
     s->calc = ticalcs_handle_new(s->model);
     if (s->calc == nullptr)
@@ -555,6 +570,152 @@ int check_ams_209(cl_session* s)
         return CL_E_NOT_SUPPORTED;
     }
     return CL_OK;
+}
+
+// ----- serial cables -------------------------------------------------------
+
+// Turns a caller's serial port name ("COM7", "com12", "\\.\COM3") into the form CreateFile needs
+// for every port number ("\\.\COMn"). Only the GrayLink takes a device name, and only a COM port:
+// the name goes straight to CreateFile, so nothing else (files, pipes, other devices) is accepted.
+// An empty or null name means "the cable's default for its port".
+bool serial_device_path(int32_t cable_model, const char* device, std::string& out)
+{
+    out.clear();
+    if (device == nullptr || *device == '\0')
+    {
+        return true;
+    }
+    if (cable_model != CABLE_GRY)
+    {
+        return false;
+    }
+    const char* p = device;
+    if (std::strncmp(p, "\\\\.\\", 4) == 0)
+    {
+        p += 4;
+    }
+    if (_strnicmp(p, "COM", 3) != 0)
+    {
+        return false;
+    }
+    p += 3;
+    int n = 0;
+    int digits = 0;
+    for (; *p >= '0' && *p <= '9'; ++p)
+    {
+        n = n * 10 + (*p - '0');
+        if (++digits > 3)
+        {
+            return false;
+        }
+    }
+    if (*p != '\0' || digits == 0 || n < 1 || n > 255)
+    {
+        return false;
+    }
+    out = "\\\\.\\COM" + std::to_string(n);
+    return true;
+}
+
+// Asks the calculator on a DBUS cable (SilverLink, GrayLink) which model it is, the way TiLP's
+// device probe does. CALC_NONE when nothing answers, e.g. a TI-83 Plus waiting in its boot code for
+// an OS. *open_error receives the cable's open error, if that is what failed.
+CalcModel probe_dbus_calc(CableModel cable, CablePort port, const std::string& device, int* open_error)
+{
+    *open_error = 0;
+    CalcModel model = CALC_NONE;
+    CableHandle* h = ticables_handle_new(cable, port);
+    if (h == nullptr)
+    {
+        *open_error = CL_E_INVALID_ARG;
+        return CALC_NONE;
+    }
+    ticables_options_set_timeout(h, 10);
+    if (!device.empty())
+    {
+        *open_error = ticables_cable_set_device(h, device.c_str());
+    }
+    if (*open_error == 0)
+    {
+        *open_error = ticables_cable_open(h);
+    }
+    if (*open_error == 0)
+    {
+        if (cable != CABLE_SLV)
+        {
+            ticables_cable_reset(h);
+        }
+        // ticalcs_probe_calc tries the fast FLASH probe (73/83+/84+/89/92+/V200) first, then the
+        // slower probe for non-FLASH models (82/83/85/86/92). ticalcs_probe_usb_calc would only do
+        // the first step.
+        if (ticalcs_probe_calc(h, &model) != 0)
+        {
+            model = CALC_NONE;
+        }
+        ticables_cable_close(h);
+    }
+    ticables_handle_del(h);
+    return model;
+}
+
+// ----- exam mode -------------------------------------------------------------
+
+// Models whose exam mode (Press-to-Test) ends when a computer receives a variable from them and
+// sends it back. WebTILP's "Leave exam mode" uses the window settings variable RclWindw for this.
+bool leaves_exam_by_var_round_trip(CalcModel m)
+{
+    return m == CALC_TI83PCE_USB || m == CALC_TI84PCE_USB || m == CALC_TI84PT_USB || m == CALC_TI82A_USB;
+}
+
+int leave_exam_by_var_round_trip(cl_session* s)
+{
+    VarEntry ve;
+    std::memset(&ve, 0, sizeof(ve));
+    std::strncpy(ve.name, "RclWindw", sizeof(ve.name) - 1);
+    ve.type = TI84p_ZSTO;
+
+    char* base = tifiles_build_filename(s->model, &ve);
+    if (base == nullptr)
+    {
+        return CL_E_NO_MEMORY;
+    }
+    gchar* file = g_strdup_printf("calclink-%lu-%s", static_cast<unsigned long>(GetCurrentProcessId()), base);
+    tifiles_filename_free(base);
+    gchar* path = g_build_filename(g_get_tmp_dir(), file, nullptr);   // GLib paths are UTF-8 on Windows
+    g_free(file);
+
+    int ret = ticalcs_calc_recv_var2(s->calc, MODE_NORMAL, path, &ve);
+    if (ret == 0)
+    {
+        ret = ticalcs_calc_send_var2(s->calc, MODE_NORMAL, path);
+    }
+    g_remove(path);
+    g_free(path);
+    return ret;
+}
+
+// TI-Nspire: the remote management service's "leave Press-to-Test" request, then its reset request
+// (the packets WebTILP sends). The calculator restarts, so the reply to the reset may never come.
+int leave_exam_nspire(cl_session* s)
+{
+    constexpr int kErrInvalidPacket = 266;   // libticalcs ERR_INVALID_PACKET: no reply payload
+    uint8_t leave[9] = { 0x00, 0x00, 0x04, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    int ret = nsp_cmd_s_generic_data(s->calc, sizeof(leave), leave, NSP_SID_REMOTE_MGMT, 0x00);
+    if (ret == 0 || ret == kErrInvalidPacket)
+    {
+        ret = nsp_cmd_r_generic_data(s->calc, nullptr, nullptr);
+    }
+    if (ret != 0 && ret != kErrInvalidPacket)
+    {
+        return ret;
+    }
+    uint8_t reset[9] = { 0x00, 0x00, 0x06, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00 };
+    ret = nsp_cmd_s_generic_data(s->calc, sizeof(reset), reset, NSP_SID_REMOTE_MGMT, 0x00);
+    if (ret == 0 || ret == kErrInvalidPacket)
+    {
+        (void)nsp_cmd_r_generic_data(s->calc, nullptr, nullptr);
+    }
+    return 0;
 }
 
 // ----- names ---------------------------------------------------------------
@@ -1009,24 +1170,8 @@ CL_API int CL_CALL cl_probe_usb(cl_device* out, int32_t capacity, int32_t* count
                 // SilverLink: the cable says nothing about the calculator; ask it (TiLP:
                 // tilp_device_probe_usb step 2). Takes a few seconds if nothing answers (fast probe, then slow probe).
                 dev.cable_model = CABLE_SLV;
-                CalcModel model = CALC_NONE;
-                CableHandle* h = ticables_handle_new(CABLE_SLV, static_cast<CablePort>(dev.cable_port));
-                if (h != nullptr)
-                {
-                    ticables_options_set_timeout(h, 10);
-                    if (ticables_cable_open(h) == 0)
-                    {
-                        // ticalcs_probe_calc tries the fast FLASH probe (73/83+/84+/89/92+/V200)
-                        // first, then the slower probe for non-FLASH models (82/83/85/86/92).
-                        // ticalcs_probe_usb_calc would only do the first step.
-                        if (ticalcs_probe_calc(h, &model) != 0)
-                        {
-                            model = CALC_NONE;
-                        }
-                        ticables_cable_close(h);
-                    }
-                    ticables_handle_del(h);
-                }
+                int open_error = 0;
+                const CalcModel model = probe_dbus_calc(CABLE_SLV, static_cast<CablePort>(dev.cable_port), std::string(), &open_error);
                 dev.calc_model = model;
                 name = (model > CALC_NONE && model < CALC_MAX) ? k_model_names[model] : variant_name(info.variant);
             }
@@ -1113,6 +1258,12 @@ CL_API const char* CL_CALL cl_model_name(int32_t calc_model)
 CL_API int CL_CALL cl_open(int32_t cable_model, int32_t cable_port, int32_t calc_model,
                            int32_t timeout_ds, cl_session** out)
 {
+    return cl_open_device(cable_model, cable_port, nullptr, calc_model, timeout_ds, out);
+}
+
+CL_API int CL_CALL cl_open_device(int32_t cable_model, int32_t cable_port, const char* device,
+                                  int32_t calc_model, int32_t timeout_ds, cl_session** out)
+{
     return guarded([&]() -> int
     {
         if (out == nullptr)
@@ -1127,6 +1278,11 @@ CL_API int CL_CALL cl_open(int32_t cable_model, int32_t cable_port, int32_t calc
         {
             return CL_E_INVALID_ARG;
         }
+        std::string dev;
+        if (!serial_device_path(cable_model, device, dev))
+        {
+            return CL_E_INVALID_ARG;
+        }
         int r = ensure_init();
         if (r != CL_OK)
         {
@@ -1136,6 +1292,7 @@ CL_API int CL_CALL cl_open(int32_t cable_model, int32_t cable_port, int32_t calc
         cl_session* s = new cl_session();
         s->cable_model = static_cast<CableModel>(cable_model);
         s->cable_port  = static_cast<CablePort>(cable_port);
+        s->device      = std::move(dev);
         // CALC_TI84P over a DirectLink cable must be driven as CALC_TI84P_USB, etc.
         s->model       = ticalcs_remap_model_to_usb(s->cable_model, static_cast<CalcModel>(calc_model));
         s->timeout_ds  = static_cast<unsigned int>(timeout_ds);
@@ -2199,4 +2356,81 @@ CL_API int CL_CALL cl_dump_rom(cl_session* s, const char* path)
     });
 }
 
+CL_API int CL_CALL cl_probe_calc(int32_t cable_model, int32_t cable_port, const char* device, int32_t* calc_model)
+{
+    return guarded([&]() -> int
+    {
+        if (calc_model == nullptr)
+        {
+            return CL_E_INVALID_ARG;
+        }
+        *calc_model = CALC_NONE;
+        if (cable_model != CABLE_SLV && cable_model != CABLE_GRY)
+        {
+            return CL_E_NOT_SUPPORTED;   // DirectLink devices are identified by cl_probe_usb
+        }
+        if (cable_port < PORT_1 || cable_port >= PORT_MAX)
+        {
+            return CL_E_INVALID_ARG;
+        }
+        std::string dev;
+        if (!serial_device_path(cable_model, device, dev))
+        {
+            return CL_E_INVALID_ARG;
+        }
+        int r = ensure_init();
+        if (r != CL_OK)
+        {
+            return r;
+        }
+        int open_error = 0;
+        const CalcModel model = probe_dbus_calc(static_cast<CableModel>(cable_model),
+                                                static_cast<CablePort>(cable_port), dev, &open_error);
+        if (open_error != 0)
+        {
+            return map_ret(nullptr, open_error);
+        }
+        *calc_model = model;
+        return CL_OK;
+    });
+}
+
+CL_API int32_t CL_CALL cl_can_leave_exam_mode(cl_session* s)
+{
+    if (check_session(s) != CL_OK)
+    {
+        return 0;
+    }
+    return (leaves_exam_by_var_round_trip(s->model) || s->model == CALC_NSPIRE) ? 1 : 0;
+}
+
+CL_API int CL_CALL cl_leave_exam_mode(cl_session* s)
+{
+    return guarded([&]() -> int
+    {
+        int r = check_session(s);
+        if (r != CL_OK)
+        {
+            return r;
+        }
+        OpScope op(s);
+        if (leaves_exam_by_var_round_trip(s->model))
+        {
+            return map_ret(s, leave_exam_by_var_round_trip(s));
+        }
+        if (s->model == CALC_NSPIRE)
+        {
+            // The NSP link must be set up (address exchange) before a service can be addressed.
+            int ret = ticalcs_calc_isready(s->calc);
+            if (ret == 0)
+            {
+                ret = leave_exam_nspire(s);
+            }
+            return map_ret(s, ret);
+        }
+        return CL_E_NOT_SUPPORTED;
+    });
+}
+
 } // extern "C"
+

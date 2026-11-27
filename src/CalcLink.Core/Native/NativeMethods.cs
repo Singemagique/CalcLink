@@ -109,7 +109,7 @@ internal enum InfosMask : uint
 internal static unsafe partial class NativeMethods
 {
     public const string LibraryName = "calclink_native"; // calclink_native.dll (CalcLink.dll is the managed app)
-    public const int ExpectedAbiVersion = 3;
+    public const int ExpectedAbiVersion = 4;
 
     // ---- Library ----
     [LibraryImport(LibraryName)]
@@ -152,10 +152,20 @@ internal static unsafe partial class NativeMethods
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial byte* cl_model_name(int calc_model);
 
+    /// <summary>`device`: GrayLink only, "COMn"; null = the port's default.</summary>
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_probe_calc(int cable_model, int cable_port, string? device, int* calc_model);
+
     // ---- Session ----
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int cl_open(int cable_model, int cable_port, int calc_model, int timeout_ds, nint* @out);
+
+    /// <summary>`device`: GrayLink only, "COMn"; null = the port's default.</summary>
+    [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_open_device(int cable_model, int cable_port, string? device, int calc_model, int timeout_ds, nint* @out);
 
     [LibraryImport(LibraryName)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
@@ -264,6 +274,14 @@ internal static unsafe partial class NativeMethods
     [LibraryImport(LibraryName, StringMarshalling = StringMarshalling.Utf8)]
     [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     public static partial int cl_dump_rom(nint s, string path);
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_can_leave_exam_mode(nint s);
+
+    [LibraryImport(LibraryName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial int cl_leave_exam_mode(nint s);
 
     // ---- Helpers ----
 

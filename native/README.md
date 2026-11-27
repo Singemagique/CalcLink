@@ -4,7 +4,7 @@
 (P/Invoked by `CalcLink.Core`). It wraps [tilibs](https://github.com/debrouxl/tilibs)
 (libticables2, libticalcs2, libtifiles2, libticonv), which are **linked statically into the DLL**.
 `clprobe.exe` is a small console tool for hardware smoke tests, and `calclink-driver.exe` is the
-USB driver setup helper. The current ABI version is 3 (`CL_ABI_VERSION`); Core won't use a DLL
+USB driver setup helper. The current ABI version is 4 (`CL_ABI_VERSION`); Core won't use a DLL
 with any other version and falls back to the simulator.
 
 ## clprobe

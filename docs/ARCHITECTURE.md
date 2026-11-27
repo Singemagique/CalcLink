@@ -186,6 +186,8 @@ Derived from TILP_AUDIT.md §3 (calculator functionality) and §2.6 (USB). S/M/L
 | 10 | **Protocol/event log viewer** | Hook `ticalcs_calc_set_event_hook` / `ticables_cable_set_event_hook` in the shim and stream the events to a log pane. Needs an ABI addition. | M | F8, not planned for now |
 | 11 | **TCP / emulator cables** | `CABLE_TCPC` / `CABLE_TCPS` for emulators. `CableModel` already has the values. | S | Planned as F12 |
 | 12 | **Certificates** | Send/receive certificates (`FTS_CERT`). Send already goes through `cl_send_file`; receive needs an ABI call. | S | Not started |
+| 13 | **Gray serial TI-Graph Link, and calculators the scan can't identify** | `cl_open_device` passes a COM port to tilibs' GrayLink driver (only `COM1`–`COM255` is accepted, since the name goes to `CreateFile`); `cl_probe_calc` asks a SilverLink or GrayLink calculator for its model. The Devices page's **Set up a connection…** uses both, and also lets the user choose the model of a calculator waiting in its boot code for an OS, so the OS can be reinstalled. | M | Done (ABI 4); untested on hardware |
+| 14 | **Leave exam mode** | `cl_leave_exam_mode`, after WebTILP: on the CE-family TI-84/83/82 models, receive `RclWindw` and send it back; on the TI-Nspire, the remote management service's leave-PTT and reset requests. | S | Done (ABI 4); untested on hardware |
 
 ### 7.3 Library-side gaps to raise upstream
 

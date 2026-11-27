@@ -54,13 +54,17 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
     public DeviceDescriptor Device { get; }
     public CalcModel Model { get; private set; }
     public CalcFeatures Features { get; private set; }
+    public bool CanLeaveExamMode { get; private set; }
 
     public event EventHandler<CalcLinkException>? Disconnected;
 
     private void OpenOnWorker(int timeoutDs)
     {
         nint h;
-        int rc = NativeMethods.cl_open((int)Device.Cable, Device.Port, (int)Device.Model, timeoutDs, &h);
+        if (Device.Model == CalcModel.None)
+            throw new CalcLinkException(CalcErrorCodes.InvalidArgument,
+                $"{Device.DisplayName}: the calculator didn't say which model it is. Choose the model to connect.");
+        int rc = NativeMethods.cl_open_device((int)Device.Cable, Device.Port, Device.SerialPort, (int)Device.Model, timeoutDs, &h);
         if (rc != CalcErrorCodes.Ok)
             throw new CalcLinkException(rc, $"Could not open {Device.DisplayName}: {NativeMethods.ErrorMessage(rc)}");
 
@@ -68,6 +72,7 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
             _handle = h;
 
         Features = (CalcFeatures)NativeMethods.cl_features(h);
+        CanLeaveExamMode = NativeMethods.cl_can_leave_exam_mode(h) != 0;
         int model = NativeMethods.cl_calc_model(h);
         if (model > 0)
             Model = (CalcModel)model;
@@ -561,6 +566,13 @@ internal sealed unsafe partial class NativeCalculatorSession : ICalculatorSessio
         return Run(CalcFeatures.RomDump,
             () => WriteViaTempFile(path, temp => NativeMethods.cl_dump_rom(_handle, temp), rc => Check(rc, ct)),
             ct, progress);
+    }
+
+    public Task LeaveExamModeAsync(CancellationToken ct = default)
+    {
+        if (!CanLeaveExamMode)
+            return Task.FromException(new CalcLinkException(CalcErrorCodes.NotSupported, $"Leaving exam mode isn't supported on {Model}."));
+        return Run(() => Check(NativeMethods.cl_leave_exam_mode(_handle), ct, "Leaving exam mode"), ct);
     }
 
     /// <summary>

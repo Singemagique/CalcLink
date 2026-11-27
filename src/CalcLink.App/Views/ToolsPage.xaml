@@ -123,21 +123,21 @@
                                         AutomationProperties.Name="Time to set" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Command="{x:Bind ViewModel.ReadClockCommand}"
+                            <Button Command="{x:Bind ViewModel.ReadClockCommand}" AutomationProperties.Name="Read clock"
                                     ToolTipService.ToolTip="Read the calculator's date and time">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Glyph="&#xE823;" FontSize="14" />
                                     <TextBlock Text="Read" />
                                 </StackPanel>
                             </Button>
-                            <Button Command="{x:Bind ViewModel.SetClockCommand}"
+                            <Button Command="{x:Bind ViewModel.SetClockCommand}" AutomationProperties.Name="Set clock"
                                     ToolTipService.ToolTip="Set the calculator clock to the date and time above">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Glyph="&#xE787;" FontSize="14" />
                                     <TextBlock Text="Set" />
                                 </StackPanel>
                             </Button>
-                            <Button Command="{x:Bind ViewModel.SyncClockCommand}"
+                            <Button Command="{x:Bind ViewModel.SyncClockCommand}" AutomationProperties.Name="Sync clock with PC"
                                     ToolTipService.ToolTip="Set the calculator clock to this PC's current time">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <FontIcon Glyph="&#xE7F8;" FontSize="14" />
@@ -163,14 +163,14 @@
                                 <TextBlock Text="Back up now" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.Backups.SaveAsCommand}"
+                        <Button Command="{x:Bind ViewModel.Backups.SaveAsCommand}" AutomationProperties.Name="Save backup as"
                                 ToolTipService.ToolTip="Choose where to save the backup, and its format">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE792;" FontSize="14" />
                                 <TextBlock Text="Save as…" />
                             </StackPanel>
                         </Button>
-                        <Button Command="{x:Bind ViewModel.Backups.OpenFolderCommand}"
+                        <Button Command="{x:Bind ViewModel.Backups.OpenFolderCommand}" AutomationProperties.Name="Open backups folder"
                                 Visibility="{x:Bind ViewModel.Connection.IsConnected, Mode=OneWay}"
                                 ToolTipService.ToolTip="{x:Bind ViewModel.Backups.FolderText, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
@@ -248,7 +248,7 @@
                     <TextBlock Text="ROM image" Style="{StaticResource SubtitleTextBlockStyle}" />
                     <TextBlock Style="{StaticResource SecondaryTextStyle}"
                                Text="A ROM dump creates an image of the calculator's software, for use with an emulator." />
-                    <Button Command="{x:Bind ViewModel.DumpRomCommand}">
+                    <Button Command="{x:Bind ViewModel.DumpRomCommand}" AutomationProperties.Name="ROM dump">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE950;" FontSize="14" />
                             <TextBlock Text="ROM dump…" />
@@ -272,7 +272,7 @@
                     <InfoBar IsOpen="{x:Bind ViewModel.ShowOsWarning, Mode=OneWay}" IsClosable="False" Severity="Warning" Title="Before upgrading"
                              Message="Use fresh or fully charged batteries and do not unplug the cable until the transfer has finished." />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button Command="{x:Bind ViewModel.SendOsCommand}">
+                        <Button Command="{x:Bind ViewModel.SendOsCommand}" AutomationProperties.Name="Send OS">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE898;" FontSize="14" />
                                 <TextBlock Text="Send OS…" />
@@ -286,6 +286,31 @@
                         </Grid.ColumnDefinitions>
                         <FontIcon Style="{StaticResource NoteIconStyle}" />
                         <TextBlock Grid.Column="1" Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.OsNote, Mode=OneWay}" />
+                    </Grid>
+                    <TextBlock Style="{StaticResource SecondaryCaptionTextStyle}" TextWrapping="Wrap"
+                               Text="A calculator stuck waiting for an operating system can still get one. Connect it from the Devices page with Set up a connection, choosing its model, then send the OS here." />
+                </StackPanel>
+            </Border>
+
+            <!-- Exam mode -->
+            <Border Style="{StaticResource CardBorderStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Exam mode" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock Style="{StaticResource SecondaryTextStyle}" TextWrapping="Wrap"
+                               Text="Ends exam mode (Press-to-Test) on a TI-84 Plus CE, TI-83 Premium CE, TI-84 Plus T, TI-82 Advanced or TI-Nspire, as linking to a computer after the exam does. A calculator that isn't in exam mode is left as it is." />
+                    <Button Command="{x:Bind ViewModel.LeaveExamModeCommand}" AutomationProperties.Name="Leave exam mode">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE785;" FontSize="14" />
+                            <TextBlock Text="Leave exam mode…" />
+                        </StackPanel>
+                    </Button>
+                    <Grid ColumnSpacing="8" Visibility="{x:Bind h:Format.VisibleIfNotEmpty(ViewModel.ExamNote), Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Style="{StaticResource NoteIconStyle}" />
+                        <TextBlock Grid.Column="1" Style="{StaticResource SecondaryTextStyle}" Text="{x:Bind ViewModel.ExamNote, Mode=OneWay}" />
                     </Grid>
                 </StackPanel>
             </Border>

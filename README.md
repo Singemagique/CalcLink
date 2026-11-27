@@ -6,7 +6,7 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
 
 > **Status:** v1.0.0, the first release.
 > * **Tested on real hardware:** a TI-83 Plus (OS 1.16) on a SilverLink cable, with Windows 10 x64 and the WinUSB driver.
-> * **Not yet tested:** the other models and cables.
+> * **Not yet tested:** the other models and cables, the gray serial TI-Graph Link, and Leave exam mode.
 > * **Without hardware:** the app also runs against a built-in **simulator**.
 >
 > Hardware support needs the native `calclink_native.dll` (see [docs/BUILDING.md](docs/BUILDING.md)) and a one-time driver setup per calculator model, which CalcLink can do for you (see [USB driver setup](#usb-driver-setup)).
@@ -14,6 +14,8 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
 ## What it does
 
 * **Devices.** Finds calculators on USB and connects with one click. If none is found, it shows a "Calculator not found?" checklist. If a TI calculator or cable is plugged in with a driver CalcLink can't use, a **Set up USB driver…** button fixes it ([see below](#usb-driver-setup)).
+  * **Set up a connection…** connects through the gray serial **TI-Graph Link** on any COM port, including a USB-serial adapter: pick the port, then let CalcLink detect the calculator or choose its model.
+  * It also connects to a calculator that doesn't answer the scan because it's waiting for an operating system, such as a TI-83 Plus after a failed OS upgrade: choose its model, then reinstall the OS from **Tools**.
 * **Calculator.** Lists variables, programs and apps with their type, size and location (RAM or Archive), and lets you filter, sort and search them.
   * **Send:** drag files onto the list or use **Send files**. CalcLink asks before replacing a variable that already exists, since the calculator would overwrite it without asking.
   * **Manage:** receive, delete, run, archive / move to RAM, create folders and rename.
@@ -27,6 +29,7 @@ CalcLink is a ground-up replacement for the GTK2 front-ends of [TiLP2 and GFM](h
   * A program whose characters can't be told apart (the statistic `e` and the letter `e` look the same) shows a warning before you save it.
 * **Screen.** Captures the calculator screen, or shows it live; you can copy it or save it as a PNG.
 * **Tools.** Shows calculator information: model, ID, product code, OS and boot versions, free memory, battery. It also sets the clock, makes ROM dumps, and sends OS upgrades.
+  * **Leave exam mode** ends Press-to-Test on a TI-84 Plus CE, TI-83 Premium CE, TI-84 Plus T, TI-82 Advanced or TI-Nspire, as linking to a computer after an exam does.
 * **Backups.** **Back up now** saves the calculator to a dated file in `Documents\CalcLink Backups`, in a folder for each calculator; you can change the location in Settings.
   * On flash models (TI-83 Plus, TI-84 Plus family and so on), a backup is a TI group (`.tig`) with every variable, program and app, in RAM and in the archive. The model's own backup format (`.8xb`) holds only RAM.
   * The Tools page lists past backups. **Restore…** shows what's in a backup, with the items no longer on the calculator ticked, and sends back what you choose.
